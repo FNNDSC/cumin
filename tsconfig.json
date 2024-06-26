@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "esnext",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "rootDir": "./src",
     "moduleResolution": "node",
+    "strict": true,
+    "noImplicitAny": false,
     "esModuleInterop": true,
     "typeRoots": ["./node_modules/@types", "./types"],
     "skipLibCheck": true,
-    "noImplicitAny": false,
-    "outDir": "./dist",
     "declaration": true,
-    "strict": true,
-    "rootDir": "./src",
     "sourceMap": true
   },
   "include": ["src/**/*"],
