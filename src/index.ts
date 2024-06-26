@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
-import figlet from "figlet";
-import { chrisConnection } from "./connect/chrisConnection";
-export { chrisConnection };
+import { chrisConnection, Client } from "./connect/chrisConnection.js";
+export {
+  chrisConnection,
+  ChRISConnection,
+  Client,
+} from "./connect/chrisConnection.js";
 
 export async function ChRISconnect(
   username: string,
@@ -29,21 +32,16 @@ export async function getChrisVersion(url: string): Promise<string> {
   return version;
 }
 
+// Main function
 async function main() {
-  console.log(figlet.textSync("cumin"));
-  console.log(" -- CUbe Managment INterface --");
-  console.log("\n");
-  console.log("Welcome to cumin! Also known as a spicy part of any chili.\n\n");
-  console.log(
-    "Note that cumin isn't really intended to be used as standalone program",
-  );
-  console.log(
-    "rather, it is a support interface providing useful services especially",
-  );
-  console.log("the ChILI project.");
+  console.log("In main...");
 }
 
-main().catch((error) => {
-  console.error("An error occurred:", error);
-  process.exit(1);
-});
+// Only run the main function if this file is being run directly
+// Use CommonJS check for main module
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("An error occurred:", error);
+    process.exit(1);
+  });
+}
