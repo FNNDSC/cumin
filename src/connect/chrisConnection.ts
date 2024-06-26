@@ -3,13 +3,15 @@ import path from "path";
 import os from "os";
 import Client from "@fnndsc/chrisapi";
 
+export { Client };
+
 interface ConnectOptions {
   user: string;
   password: string;
   url: string;
 }
 
-class ChRISConnection {
+export class ChRISConnection {
   private authToken: string | null = null;
   private tokenFile: string;
   private userFile: string;
