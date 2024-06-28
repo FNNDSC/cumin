@@ -20,7 +20,7 @@ async function main() {
   console.log("\n");
   console.log("Welcome to cumin! Also known as a spicy part of any chili.\n\n");
   console.log(
-    "Note that cumin isn't really intended to be used as standalone program",
+    "Note that cumin isn't really intended to be used as standalone program;",
   );
   console.log(
     "rather, it is a support interface providing useful services especially",
