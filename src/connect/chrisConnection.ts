@@ -2,6 +2,14 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import Client from "@fnndsc/chrisapi";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+// Read package.json
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, "../..", "package.json"), "utf-8"),
+);
+const name = packageJson.name;
 
 export { Client };
 
@@ -26,12 +34,12 @@ export class ChRISConnection {
   constructor() {
     const configBase: string =
       process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-    this.configDir = path.join(configBase, "chili");
+    this.configDir = path.join(configBase, name);
     this.ensureDirExists(this.configDir);
     this.userFile = path.join(this.configDir, "lastUser.txt");
     this.instanceDir = "";
     this.loadUser();
-    this.tokenFile = "chili_token.txt";
+    this.tokenFile = name.replace("/", "_") + "_token.txt";
     this.chrisURLfile = "chrisurl.txt";
     this.chrisURL = "";
     if (this.user) {
