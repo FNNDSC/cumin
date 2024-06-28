@@ -1,30 +1,32 @@
 #!/usr/bin/env node
 
-import { chrisConnection, Client } from "./connect/chrisConnection.js";
+// import { chrisConnection, Client } from "./connect/chrisConnection.js";
+// import { chrisFeed } from "./feed/chrisFeed.js";
 export {
   chrisConnection,
   ChRISConnection,
   Client,
 } from "./connect/chrisConnection.js";
+export { chrisFeed, ChRISFeed } from "./feed/chrisFeed.js";
 
-export async function ChRISconnect(
-  username: string,
-  password: string,
-  url: string,
-): Promise<string | null> {
-  try {
-    const authToken: string | null = await chrisConnection.connect({
-      user: username,
-      password: password,
-      url: url,
-    });
-    return authToken;
-  } catch (error) {
-    console.error("Failed to connect:", error);
-  }
-  return null;
-}
-
+// export async function ChRISconnect(
+//   username: string,
+//   password: string,
+//   url: string,
+// ): Promise<string | null> {
+//   try {
+//     const authToken: string | null = await chrisConnection.connect({
+//       user: username,
+//       password: password,
+//       url: url,
+//     });
+//     return authToken;
+//   } catch (error) {
+//     console.error("Failed to connect:", error);
+//   }
+//   return null;
+// }
+//
 export async function getChrisVersion(url: string): Promise<string> {
   const version = "1.0.0";
   // const client = Client.getClient(url);
