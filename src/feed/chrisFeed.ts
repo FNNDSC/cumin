@@ -1,7 +1,8 @@
 // feed.ts
 
 // import { Command } from "commander";
-import { chrisConnection } from "chrisConnection.js";
+import { Feed, FeedList } from "@fnndsc/chrisapi";
+import { chrisConnection } from "../connect/chrisConnection.js";
 // import Client from "@fnndsc/chrisapi";
 
 interface ListFeedsOptions {
@@ -23,7 +24,11 @@ interface FeedItem {
 }
 
 export class ChRISFeed {
-  constructor() {}
+  private feeds: FeedItem[];
+
+  constructor() {
+    this.feeds = [];
+  }
 
   printFeedsTable(feeds: FeedItem[], fields?: string[]): void {
     if (feeds.length === 0) {
@@ -68,13 +73,13 @@ export class ChRISFeed {
     console.log("\n"); // Add a newline for better separation between feeds
   }
 
-  async listFeeds(options: ListFeedsOptions): Promise<void> {
+  async feeds_get(options: ListFeedsOptions): Promise<FeedList | null> {
     const client = chrisConnection.getClient();
     if (!client) {
       console.log(
         "Not connected to ChRIS. Please connect first using the connect command.",
       );
-      return;
+      return null;
     }
 
     try {
@@ -83,18 +88,17 @@ export class ChRISFeed {
         offset: 0,
       };
       const feeds = await client.getFeeds(params);
-
+      const fields = options.fields
+        ? options.fields.split(",").map((f) => f.trim())
+        : undefined;
       if (feeds && feeds.collection && feeds.collection.items) {
-        const fields = options.fields
-          ? options.fields.split(",").map((f) => f.trim())
-          : undefined;
-        this.printFeedsTable(feeds.collection.items, fields);
       } else {
-        console.log("No feeds found or unexpected data structure.");
+        console.log("No feeds found or unexpected data structure");
       }
     } catch (error) {
-      console.error("Error listing feeds:", error);
+      console.error("Error accessing feeds in ChRIS: ", error);
     }
+    return null;
   }
 
   async createFeed(options: CreateFeedOptions): Promise<void> {
@@ -126,29 +130,4 @@ export class ChRISFeed {
   }
 }
 
-// export function setupFeedCommand(program: Command): void {
-//   const feedCommand = program
-//     .command("feed")
-//     .description("Interact with ChRIS feeds");
-//
-//   feedCommand
-//     .command("list")
-//     .description("List feeds")
-//     .option("-p, --page <size>", "Page size (default 20)")
-//     .option(
-//       "-f, --fields <fields>",
-//       "Comma-separated list of fields to display",
-//     )
-//     .action(async (options) => {
-//       await listFeeds(options);
-//     });
-//
-//   feedCommand
-//     .command("new")
-//     .description("Create a new feed")
-//     .option("-n, --name <FeedName>", "the name for the feed")
-//     .option("-p, --path <ChRISpath>", "a path inside the ChRIS FS")
-//     .action(async (options) => {
-//       await createFeed(options);
-//     });
-// }
+export const chrisFeed = new ChRISFeed();
