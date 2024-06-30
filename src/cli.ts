@@ -26,23 +26,6 @@ async function main() {
     "rather, it is a support interface providing useful services especially",
   );
   console.log("the ChILI project.");
-
-  // const chrisUrl = "http://localhost:8000/api/v1/";
-  // const usersUrl = chrisUrl + "users/";
-  // const authUrl = chrisUrl + "auth-token/";
-  // let authToken;
-  // let resp;
-  //
-  // console.log(Client);
-  // console.log(Client.getAuthToken);
-  //
-  // try {
-  //   // fetch a user auth token
-  //   resp = await Client.getAuthToken(authUrl, "cube", "cube1234");
-  //   console.log("Auth token:", resp);
-  // } catch (error) {
-  //   console.error("Error fetching auth token:", error);
-  // }
 }
 
 main().catch(console.error);
