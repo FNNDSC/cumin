@@ -2,13 +2,17 @@
 
 // import { chrisConnection, Client } from "./connect/chrisConnection.js";
 // import { chrisFeed } from "./feed/chrisFeed.js";
-export {
-  chrisConnection,
-  ChRISConnection,
-  Client,
-} from "./connect/chrisConnection.js";
-export { chrisFeed, ChRISFeed } from "./feed/chrisFeed.js";
+// export {
+//   chrisConnection,
+//   ChRISConnection,
+//   Client,
+// } from "./connect/chrisConnection.js";
+// export { chrisFeed, ChRISFeed } from "./feed/chrisFeed.js";
 
+export * from "./";
+export * from "./feed/chrisFeed";
+export * from "./connect/chrisConnection";
+// ... other exports
 // export async function ChRISconnect(
 //   username: string,
 //   password: string,
