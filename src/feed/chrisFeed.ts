@@ -23,11 +23,43 @@ interface FeedItem {
   links: Array<any>;
 }
 
+interface FilteredFeedData {
+  tableData: Record<string, any>[];
+  selectedFields: string[];
+}
+
 export class ChRISFeed {
   private feeds: FeedItem[];
 
   constructor() {
     this.feeds = [];
+  }
+
+  feeds_filterByFields(
+    feeds: FeedItem[],
+    fields?: string[],
+  ): FilteredFeedData | null {
+    if (feeds.length === 0) {
+      console.log("No feeds found.");
+      return null;
+    }
+
+    const allFields = ["id", ...feeds[0].data.map((item) => item.name)];
+    const selectedFields = fields && fields.length > 0 ? fields : allFields;
+
+    const tableData = feeds.map((feed) => {
+      const rowData: Record<string, any> = {
+        id: feed.href.split("/").slice(-2)[0],
+      };
+      feed.data.forEach((item) => {
+        if (selectedFields.includes(item.name)) {
+          rowData[item.name] = item.value;
+        }
+      });
+      return rowData;
+    });
+
+    return { tableData, selectedFields };
   }
 
   printFeedsTable(feeds: FeedItem[], fields?: string[]): void {
@@ -92,6 +124,7 @@ export class ChRISFeed {
         ? options.fields.split(",").map((f) => f.trim())
         : undefined;
       if (feeds && feeds.collection && feeds.collection.items) {
+        return feeds;
       } else {
         console.log("No feeds found or unexpected data structure");
       }
