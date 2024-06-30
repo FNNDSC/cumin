@@ -11,7 +11,12 @@
     "typeRoots": ["./node_modules/@types", "./types"],
     "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true
+    "declarationDir": "./types",
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/__tests__/*", "dist"]
