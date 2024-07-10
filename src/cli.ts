@@ -11,8 +11,8 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 
 async function main() {
-  console.log(Client);
-  console.log(Client.getAuthToken);
+  // console.log(Client);
+  // console.log(Client.getAuthToken);
 
   console.log(figlet.textSync("cumin"));
   console.log(" -- CUbe Management INterface --");
