@@ -10,7 +10,10 @@ export class ChRISPlugin {
     this.client = chrisConnection.getClient();
     this._asset = new ChRISResource();
     if (this.client) {
-      this._asset.resource_bindGetMethod(this.client.getPlugins);
+      this._asset.resource_bindGetMethodToObj(
+        this.client,
+        this.client.getPlugins,
+      );
     }
     this._asset.resourceName = "Plugins";
     this._asset.loggedIn_check();
