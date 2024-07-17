@@ -3,7 +3,7 @@ import figlet from "figlet";
 import Client from "@fnndsc/chrisapi";
 import { readFileSync } from "fs";
 import { join } from "path";
-
+import { chrisFileBrowser_create } from "./filebrowser/chrisFileBrowser";
 // Read package.json
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, "..", "package.json"), "utf-8"),
@@ -14,6 +14,10 @@ async function main() {
   // console.log(Client);
   // console.log(Client.getAuthToken);
 
+  const chrisFileBrowser = await chrisFileBrowser_create(
+    "rudolphpienaar/uploads",
+  );
+  console.log(chrisFileBrowser);
   console.log(figlet.textSync("cumin"));
   console.log(" -- CUbe Management INterface --");
   console.log("      == version ", version, "==");
