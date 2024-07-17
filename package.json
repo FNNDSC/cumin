@@ -35,7 +35,7 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@fnndsc/chrisapi": "^1.20.0"
+    "@fnndsc/chrisapi": "^1.21.0"
   },
   "dependencies": {
     "figlet": "^1.7.0"
