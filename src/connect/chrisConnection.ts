@@ -133,6 +133,17 @@ export class ChRISConnection {
     return this.getAuthToken() !== null;
   }
 
+  loggedIn_check(): boolean {
+    let loggedIn: boolean = true;
+    if (!this.client) {
+      console.log(
+        "Not connected to ChRIS. Please connect first using the connect command.",
+      );
+      loggedIn = false;
+    }
+    return loggedIn;
+  }
+
   logout(): void {
     this.authToken = null;
     try {
