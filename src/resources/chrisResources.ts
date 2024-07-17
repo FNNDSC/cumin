@@ -31,21 +31,34 @@ interface FilteredResourceData {
 }
 
 export class ChRISResource {
-  private client: Client | null;
-  private resource: Item[];
-  private _resourceName: string;
-  private clientMethod: ((params: ListOptions) => Promise<any>) | null;
+  private _client: Client | null = null;
+  // private resource: Item[];
+  private _resourceName: string = "";
+  private _resourceObj: any | null = null;
+  private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
 
   constructor() {
-    this.resource = [];
-    this.client = chrisConnection.getClient();
+    // this.resource = [];
+    this._client = chrisConnection.getClient();
     this.loggedIn_check();
-    this._resourceName = "";
-    if (this.client) {
-      this.clientMethod = this.client.getPlugins.bind(this.client);
-    } else {
-      this.clientMethod = null;
-    }
+    // if (this._client) {
+    //   console.log("In ChRISResource constructor, binding get to plugins");
+    //   this._clientMethod = this._client.getPlugins.bind(this._client);
+    // } else {
+    //   this._clientMethod = null;
+    // }
+  }
+
+  get client(): Client | null {
+    return this._client;
+  }
+
+  get resourceObj(): any {
+    return this._resourceObj;
+  }
+
+  set resourceObj(obj: any) {
+    this._resourceObj = obj;
   }
 
   get resourceName(): string {
@@ -58,7 +71,7 @@ export class ChRISResource {
 
   loggedIn_check(): boolean {
     let loggedIn: boolean = true;
-    if (!this.client) {
+    if (!this._client) {
       console.log(
         "Not connected to ChRIS. Please connect first using the connect command.",
       );
@@ -79,12 +92,14 @@ export class ChRISResource {
     }
   }
 
-  resource_bindGetMethod(
-    clientMethod: (params: ListOptions) => Promise<any>,
+  resource_bindGetMethodToObj(
+    obj: any,
+    resourceMethod: (params: ListOptions) => Promise<any>,
     resourceName?: string,
-  ) {
-    this.clientMethod = clientMethod.bind(this.client);
-    if (resourceName) this.resourceName = resourceName;
+  ): void {
+    this._resourceObj = obj;
+    this.resourceMethod = resourceMethod.bind(obj);
+    if (resourceName) this._resourceName = resourceName;
   }
 
   resources_filterByFields(
@@ -141,7 +156,7 @@ export class ChRISResource {
 
   async resources_getList(
     options?: Partial<ListOptions>,
-    clientMethod?: (params: ListOptions) => Promise<any>,
+    resourceMethod?: (params: ListOptions) => Promise<any>,
   ): Promise<ResourcesFromOptions | null> {
     if (!this.loggedIn_check()) return null;
 
@@ -151,11 +166,14 @@ export class ChRISResource {
       ...options,
     };
 
-    if (clientMethod) {
-      this.clientMethod = clientMethod;
+    console.log("WWWWWWWWWWWWWWWWW");
+    console.log(this);
+
+    if (resourceMethod) {
+      this.resourceMethod = resourceMethod;
     }
-    if (!this.clientMethod) return null;
-    const resources = await this.clientMethod(params);
+    if (!this.resourceMethod) return null;
+    const resources = await this.resourceMethod(params);
     if (resources == undefined) {
       console.log(this._resourceName + " resource list returned 'undefined'");
       return { resources: null, options: params };
