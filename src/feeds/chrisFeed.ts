@@ -10,7 +10,10 @@ export class ChRISFeed {
     this.client = chrisConnection.getClient();
     this._asset = new ChRISResource();
     if (this.client) {
-      this._asset.resource_bindGetMethod(this.client.getFeeds);
+      this._asset.resource_bindGetMethodToObj(
+        this.client,
+        this.client.getFeeds,
+      );
     }
     this._asset.resourceName = "Feeds";
     this._asset.loggedIn_check();
