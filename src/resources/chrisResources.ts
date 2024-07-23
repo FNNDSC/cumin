@@ -2,7 +2,7 @@ import Client from "@fnndsc/chrisapi";
 import { ListResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
-interface ListOptions {
+export interface ListOptions {
   limit: number;
   offset: number;
   name?: string;
@@ -20,7 +20,7 @@ interface ResourcesFromOptions {
   options?: ListOptions;
 }
 
-interface ResourcesByFields extends ResourcesFromOptions {
+export interface ResourcesByFields extends ResourcesFromOptions {
   items: Item[];
   fields: string[];
 }
@@ -32,34 +32,26 @@ interface FilteredResourceData {
 
 export class ChRISResource {
   private _client: Client | null = null;
-  // private resource: Item[];
   private _resourceName: string = "";
-  private _resourceObj: any | null = null;
+  // private _resourceObj: any | null = null;
   private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
 
   constructor() {
-    // this.resource = [];
     this._client = chrisConnection.getClient();
     this.loggedIn_check();
-    // if (this._client) {
-    //   console.log("In ChRISResource constructor, binding get to plugins");
-    //   this._clientMethod = this._client.getPlugins.bind(this._client);
-    // } else {
-    //   this._clientMethod = null;
-    // }
   }
 
   get client(): Client | null {
     return this._client;
   }
 
-  get resourceObj(): any {
-    return this._resourceObj;
-  }
+  // get resourceObj(): any {
+  //   return this._resourceObj;
+  // }
 
-  set resourceObj(obj: any) {
-    this._resourceObj = obj;
-  }
+  // set resourceObj(obj: any) {
+  //   this._resourceObj = obj;
+  // }
 
   get resourceName(): string {
     return this._resourceName;
@@ -73,7 +65,7 @@ export class ChRISResource {
     let loggedIn: boolean = true;
     if (!this._client) {
       console.log(
-        "Not connected to ChRIS. Please connect first using the connect command.",
+        "(resource) Not connected to ChRIS. Please connect first using the connect command.",
       );
       loggedIn = false;
     }
@@ -97,7 +89,7 @@ export class ChRISResource {
     resourceMethod: (params: ListOptions) => Promise<any>,
     resourceName?: string,
   ): void {
-    this._resourceObj = obj;
+    // this._resourceObj = obj;
     this.resourceMethod = resourceMethod.bind(obj);
     if (resourceName) this._resourceName = resourceName;
   }
@@ -166,9 +158,6 @@ export class ChRISResource {
       ...options,
     };
 
-    console.log("WWWWWWWWWWWWWWWWW");
-    console.log(this);
-
     if (resourceMethod) {
       this.resourceMethod = resourceMethod;
     }
@@ -181,5 +170,3 @@ export class ChRISResource {
     return { resources, options: params };
   }
 }
-
-export const chrisResource = new ChRISResource();
