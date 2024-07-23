@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && chmod +x ./dist/cli.js",
+    "build": "rm -fr dist types && tsc && chmod +x ./dist/cli.js",
     "test": "jest",
     "prepublishOnly": "npm run build"
   },
@@ -35,7 +35,7 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@fnndsc/chrisapi": "^1.21.0"
+    "@fnndsc/chrisapi": "^1.22.0"
   },
   "dependencies": {
     "figlet": "^1.7.0"
