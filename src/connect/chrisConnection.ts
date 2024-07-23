@@ -96,7 +96,10 @@ export class ChRISConnection {
         return null;
       }
     } catch (error) {
-      console.error("Error during connection:", error);
+      console.error("\nSome error seems to have been thrown while attempting to log in.");
+      console.error("If the ChRIS CUBE is reachable, then it's quite possible this means");
+      console.error("an incorrect login. Please check your login credentials carefully.");
+      console.error("Exiting to system with code 1...");
       throw error;
     }
   }
@@ -137,7 +140,7 @@ export class ChRISConnection {
     let loggedIn: boolean = true;
     if (!this.client) {
       console.log(
-        "Not connected to ChRIS. Please connect first using the connect command.",
+        "(connect) Not connected to ChRIS. Please connect first using the connect command.",
       );
       loggedIn = false;
     }
