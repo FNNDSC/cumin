@@ -8,6 +8,10 @@ export class ChRISPlugin {
 
   constructor() {
     this.client = chrisConnection.getClient();
+    if(!this.client) {
+      console.error("Could not access ChRIS. Have you connected with the 'connect' command?");
+      process.exit(1);
+    }
     this._asset = new ChRISResource();
     if (this.client) {
       this._asset.resource_bindGetMethodToObj(
@@ -16,12 +20,9 @@ export class ChRISPlugin {
       );
     }
     this._asset.resourceName = "Plugins";
-    this._asset.loggedIn_check();
   }
 
   get asset(): ChRISResource {
     return this._asset;
   }
 }
-
-export const chrisPlugin = new ChRISPlugin();
