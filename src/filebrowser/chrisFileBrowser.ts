@@ -25,6 +25,7 @@ export class ChRISFileBrowser {
   private _client: Client | null;
   private _chrisFileBrowserFolder: FileBrowserFolder | null = null;
   private _resource: ChRISResource | null = null;
+  private _bindOp: BoolString = {"status": false, "message": ""};
 
   constructor(variant: BrowserType = BrowserType.Files, chrisObj: FileBrowserFolder) {
     this._client = chrisConnection.getClient();
@@ -34,6 +35,11 @@ export class ChRISFileBrowser {
     }
     this._chrisFileBrowserFolder = chrisObj;
     this._resource = new ChRISResource();
+    this._bindOp = this.getMethod_bind(variant);
+  }
+
+  get bindOp(): BoolString {
+    return this._bindOp;
   }
 
   getFiles_bind(): BoolString {
@@ -91,8 +97,10 @@ export class ChRISFileBrowser {
         break;
       case BrowserType.Links:
         bindOp = this.getLinks_bind();
+        break;
       case BrowserType.Dirs:
         bindOp = this.getDirs_bind();
+        break;
     }
     return bindOp;
   }
