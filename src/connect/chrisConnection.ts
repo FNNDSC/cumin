@@ -16,6 +16,7 @@ export { Client };
 interface ConnectOptions {
   user: string;
   password: string;
+  debug: boolean;
   url: string;
 }
 
@@ -75,7 +76,7 @@ export class ChRISConnection {
   }
 
   async connect(options: ConnectOptions): Promise<string | null> {
-    const { user, password, url }: ConnectOptions = options;
+    const { user, password, debug, url }: ConnectOptions = options;
     const authUrl: string = url + "auth-token/";
     this.chrisURL = url;
 
@@ -99,8 +100,13 @@ export class ChRISConnection {
       console.error("\nSome error seems to have been thrown while attempting to log in.");
       console.error("If the ChRIS CUBE is reachable, then it's quite possible this means");
       console.error("an incorrect login. Please check your login credentials carefully.");
-      console.error("Exiting to system with code 1...");
-      throw error;
+      console.error("Also, if your password has 'special' character, make sure how you");
+      console.error("are specifying it is compatible with your shell!");
+      console.error("\nExiting to system with code 1...");
+      if(debug) {
+        throw error;
+      }
+      process.exit(1);
     }
   }
 
