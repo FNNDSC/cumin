@@ -33,7 +33,6 @@ interface FilteredResourceData {
 export class ChRISResource {
   private _client: Client | null = null;
   private _resourceName: string = "";
-  // private _resourceObj: any | null = null;
   private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
 
   constructor() {
@@ -44,14 +43,6 @@ export class ChRISResource {
   get client(): Client | null {
     return this._client;
   }
-
-  // get resourceObj(): any {
-  //   return this._resourceObj;
-  // }
-
-  // set resourceObj(obj: any) {
-  //   this._resourceObj = obj;
-  // }
 
   get resourceName(): string {
     return this._resourceName;
@@ -118,6 +109,7 @@ export class ChRISResource {
 
   async resourceFields_get(
     resourceOptions?: ResourcesFromOptions,
+    fields?: string
   ): Promise<ResourcesByFields | null> {
     if (!this.loggedIn_check()) return null;
     let availableResources: ListResource | null | undefined;
@@ -132,8 +124,14 @@ export class ChRISResource {
     if (!resourceItems || resourceItems.length === 0) return null;
     const allFields = ["id", ...resourceItems[0].data.map((item) => item.name)];
     let selectedFields: string[] = allFields;
+    let fieldSpec:string = "";
     if (resourceOptions?.options?.fields) {
-      selectedFields = resourceOptions.options.fields
+      fieldSpec = resourceOptions.options.fields;
+    } else if (fields) {
+      fieldSpec = fields;
+    }
+    if (fieldSpec) {
+      selectedFields = fieldSpec
         .split(",")
         .map((f) => f.trim());
     }
