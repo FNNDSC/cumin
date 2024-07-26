@@ -86,8 +86,11 @@ export class ChRISResource {
   }
 
   resources_filterByFields(
-    resourcesByFields: ResourcesByFields,
+    resourcesByFields: ResourcesByFields | null,
   ): FilteredResourceData | null {
+    if(!resourcesByFields) {
+      return null;
+    }
     const resources = resourcesByFields.items;
     const selectedFields = resourcesByFields.fields;
 
@@ -107,11 +110,22 @@ export class ChRISResource {
     return { tableData, selectedFields };
   }
 
+  async resources_listAndFilterByOptions(    
+    options?: Partial<ListOptions>,
+  ): Promise<FilteredResourceData | null> {
+    const results: FilteredResourceData | null = 
+    this.resources_filterByFields(
+      await this.resourceFields_get(
+        await this.resources_getList(options)
+      )
+    )
+    return results;
+  }
+
   async resourceFields_get(
-    resourceOptions?: ResourcesFromOptions,
+    resourceOptions?: ResourcesFromOptions | null,
     fields?: string
   ): Promise<ResourcesByFields | null> {
-    if (!this.loggedIn_check()) return null;
     let availableResources: ListResource | null | undefined;
     if (!resourceOptions) {
       availableResources = (await this.resources_getList())?.resources;
@@ -148,7 +162,6 @@ export class ChRISResource {
     options?: Partial<ListOptions>,
     resourceMethod?: (params: ListOptions) => Promise<any>,
   ): Promise<ResourcesFromOptions | null> {
-    if (!this.loggedIn_check()) return null;
 
     const params: ListOptions = {
       limit: 20,
