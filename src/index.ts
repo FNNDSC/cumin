@@ -7,6 +7,7 @@ export * from "./plugins/chrisPlugins";
 export * from "./resources/chrisResources";
 export * from "./filebrowser/chrisFileBrowser";
 export * from "./filebrowser/chrisFiles";
+export * from "./utils/search";
 
 export async function getChrisVersion(url: string): Promise<string> {
   const version = "1.0.0";
