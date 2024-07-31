@@ -3,9 +3,8 @@ import { ListResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
 export interface ListOptions {
-  limit: number;
-  offset: number;
-  name?: string;
+  limit?: number;
+  offset?: number;
   [key: string]: any;
 }
 
@@ -25,7 +24,7 @@ export interface ResourcesByFields extends ResourcesFromOptions {
   fields: string[];
 }
 
-interface FilteredResourceData {
+export interface FilteredResourceData {
   tableData: Record<string, any>[];
   selectedFields: string[];
 }
@@ -56,7 +55,7 @@ export class ChRISResource {
     let loggedIn: boolean = true;
     if (!this._client) {
       console.log(
-        "(resource) Not connected to ChRIS. Please connect first using the connect command.",
+        "(resource) Not connected to ChRIS. Please connect first using the connect command."
       );
       loggedIn = false;
     }
@@ -78,7 +77,7 @@ export class ChRISResource {
   resource_bindGetMethodToObj(
     obj: any,
     resourceMethod: (params: ListOptions) => Promise<any>,
-    resourceName?: string,
+    resourceName?: string
   ): void {
     // this._resourceObj = obj;
     this.resourceMethod = resourceMethod.bind(obj);
@@ -86,9 +85,9 @@ export class ChRISResource {
   }
 
   resources_filterByFields(
-    resourcesByFields: ResourcesByFields | null,
+    resourcesByFields: ResourcesByFields | null
   ): FilteredResourceData | null {
-    if(!resourcesByFields) {
+    if (!resourcesByFields) {
       return null;
     }
     const resources = resourcesByFields.items;
@@ -110,15 +109,12 @@ export class ChRISResource {
     return { tableData, selectedFields };
   }
 
-  async resources_listAndFilterByOptions(    
-    options?: Partial<ListOptions>,
+  async resources_listAndFilterByOptions(
+    options?: Partial<ListOptions>
   ): Promise<FilteredResourceData | null> {
-    const results: FilteredResourceData | null = 
-    this.resources_filterByFields(
-      await this.resourceFields_get(
-        await this.resources_getList(options)
-      )
-    )
+    const results: FilteredResourceData | null = this.resources_filterByFields(
+      await this.resourceFields_get(await this.resources_getList(options))
+    );
     return results;
   }
 
@@ -138,16 +134,14 @@ export class ChRISResource {
     if (!resourceItems || resourceItems.length === 0) return null;
     const allFields = ["id", ...resourceItems[0].data.map((item) => item.name)];
     let selectedFields: string[] = allFields;
-    let fieldSpec:string = "";
+    let fieldSpec: string = "";
     if (resourceOptions?.options?.fields) {
       fieldSpec = resourceOptions.options.fields;
     } else if (fields) {
       fieldSpec = fields;
     }
     if (fieldSpec) {
-      selectedFields = fieldSpec
-        .split(",")
-        .map((f) => f.trim());
+      selectedFields = fieldSpec.split(",").map((f) => f.trim());
     }
     const resourcesByFields: ResourcesByFields = {
       resources: availableResources,
@@ -160,9 +154,8 @@ export class ChRISResource {
 
   async resources_getList(
     options?: Partial<ListOptions>,
-    resourceMethod?: (params: ListOptions) => Promise<any>,
+    resourceMethod?: (params: ListOptions) => Promise<any>
   ): Promise<ResourcesFromOptions | null> {
-
     const params: ListOptions = {
       limit: 20,
       offset: 0,
