@@ -1,18 +1,24 @@
-import { Feed, FeedList } from "@fnndsc/chrisapi";
+import Client from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
-interface FeedItem {
-  data: Array<{ name: string; value: any }>;
-  href: string;
-  links: Array<any>;
-}
 
-export class ChRISWorkflow {
-  private feeds: FeedItem[];
+export class Activity {
+  private _client: Client | null = null;
 
-  constructor() {
-    this.feeds = [];
+  public constructor() {
+    this._client = chrisConnection.getClient();
+    if(!this._client) {
+      console.error("Could not access ChRIS. Have you connected with the 'connect' command?");
+      process.exit(1);
+    }
+    
   }
+
+  public get client(): Client | null{
+    return this._client;
+  }
+
+
 }
 
-export const chrisWorkflow = new ChRISWorkflow();
+
