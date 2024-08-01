@@ -5,7 +5,16 @@ import {
   ChRISConnection,
   chrisConnection,
 } from "../connect/chrisConnection.js";
-import { ChRISResource, ListOptions } from "../resources/chrisResources.js";
+import {
+  ChRISResource,
+  ListOptions,
+  Item,
+  ResourceFieldsPerItem,
+  FilteredResourceData,
+  SimpleRecord,
+  resourceFields_get,
+} from "../resources/chrisResources.js";
+import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
 import {
   QueryHits,
@@ -13,36 +22,42 @@ import {
   ChRISObjectDesc,
 } from "../utils/keypair.js";
 
-export class ChRISFeedGroup {
-  private _client: Client | null;
-  private _asset: ChRISResource;
-
+export class ChRISFeedGroup extends ChRISResourceGroup {
   constructor() {
-    this._client = chrisConnection.getClient();
-    if (!this._client) {
-      console.error(
-        "Could not access ChRIS. Have you connected with the 'connect' command?"
-      );
-      process.exit(1);
-    }
-    this._asset = new ChRISResource();
-    if (this._client) {
-      this._asset.resource_bindGetMethodToObj(
-        this._client,
-        this._client.getFeeds
-      );
-    }
-    this._asset.resourceName = "Feeds";
-  }
-
-  public get client(): Client | null {
-    return this._client;
-  }
-
-  get asset(): ChRISResource {
-    return this._asset;
+    super("Feeds", "getFeeds");
   }
 }
+
+// export class ChRISFeedGroup {
+//   private _client: Client | null;
+//   private _asset: ChRISResource;
+
+//   constructor() {
+//     this._client = chrisConnection.getClient();
+//     if (!this._client) {
+//       console.error(
+//         "Could not access ChRIS. Have you connected with the 'connect' command?"
+//       );
+//       process.exit(1);
+//     }
+//     this._asset = new ChRISResource();
+//     if (this._client) {
+//       this._asset.resource_bindGetMethodToObj(
+//         this._client,
+//         this._client.getFeeds
+//       );
+//     }
+//     this._asset.resourceName = "Feeds";
+//   }
+
+//   public get client(): Client | null {
+//     return this._client;
+//   }
+
+//   get asset(): ChRISResource {
+//     return this._asset;
+//   }
+// }
 
 export class ChRISFeed {
   private _client: Client | null;
@@ -57,10 +72,40 @@ export class ChRISFeed {
     }
   }
 
+  error_parse(error: unknown, activity?: string): null {
+    if (error instanceof Error) {
+      console.error(`Error ${activity}: ${error.message}`);
+    } else {
+      console.error(`An unknown error occurred while ${activity}`);
+    }
+    return null;
+  }
+
+  async feedDetail_getFromPluginInstance(
+    pluginInstance: PluginInstance | null,
+    detailSpec: string[]
+  ): Promise<SimpleRecord | null> {
+    if (!pluginInstance) {
+      return null;
+    }
+    const feed: Feed | null = await pluginInstance.getFeed();
+    if (!feed) {
+      return null;
+    }
+    const feedDetail: SimpleRecord | null = resourceFields_get(
+      feed,
+      detailSpec
+    );
+    if (!feedDetail) {
+      return null;
+    }
+    return feedDetail;
+  }
+
   async createFromDirs(
     dirs: string,
     feedParams: ChRISObjectDesc
-  ): Promise<number | null> {
+  ): Promise<SimpleRecord | null> {
     if (!this._client) {
       return null;
     }
@@ -79,23 +124,18 @@ export class ChRISFeed {
         { dir: dirs },
         feedParams.params
       );
-      console.log(createParams);
       pluginInstance = await this._client.createPluginInstance(
         pluginID,
         createParams as ChRISObjectDesc & { previous_id: 0 }
       );
-      console.log(pluginInstance);
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error(`Error creating feed: ${error.message}`);
-      } else {
-        console.error("An unknown error occurred while creating the feed");
-      }
-      return null;
+      return this.error_parse(error, "creating feed");
     }
-    const feed: Feed | null = await pluginInstance.getFeed();
-    console.log(feed);
-    return 1;
+    return await this.feedDetail_getFromPluginInstance(pluginInstance, [
+      "id",
+      "name",
+      "owner_username",
+    ]);
   }
 
   public get client(): Client | null {
