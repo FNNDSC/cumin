@@ -1,26 +1,34 @@
 import Client from "@fnndsc/chrisapi";
-import { ListResource } from "@fnndsc/chrisapi";
+import { ListResource, Resource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
-export interface ListOptions {
-  limit?: number;
-  offset?: number;
+export interface SimpleRecord {
   [key: string]: any;
 }
 
-interface Item {
+export interface ListOptions extends SimpleRecord {
+  limit?: number;
+  offset?: number;
+}
+
+export interface Item {
   data: Array<{ name: string; value: any }>;
   href: string;
   links: Array<any>;
 }
 
 interface ResourcesFromOptions {
-  resources: ListResource | null;
+  resources: ListResource | Resource | null;
   options?: ListOptions;
 }
 
-export interface ResourcesByFields extends ResourcesFromOptions {
+export interface ResourceFieldsPerItem {
   items: Item[];
+  fields: string[];
+}
+
+export interface ResourcesByFields extends ResourcesFromOptions {
+  items: Item[] | null;
   fields: string[];
 }
 
@@ -62,7 +70,9 @@ export class ChRISResource {
     return loggedIn;
   }
 
-  resourceItems_buildFromList(resources: ListResource | null): Item[] | null {
+  resourceItems_buildFromList(
+    resources: ListResource | Resource | null
+  ): Item[] | null {
     if (resources) {
       return resources.collection.items.map((item: any) => ({
         data: item.data,
@@ -118,11 +128,42 @@ export class ChRISResource {
     return results;
   }
 
+  resourcesByFields_enumerate(
+    items: Item[] | null
+  ): ResourceFieldsPerItem | null {
+    if (!items) {
+      return null;
+    }
+    const allFields = ["id", ...items[0].data.map((item) => item.name)];
+    const resourcesFieldsPerItem: ResourceFieldsPerItem = {
+      items: items,
+      fields: allFields,
+    };
+    return resourcesFieldsPerItem;
+  }
+
+  fieldSpec_resolve(
+    fieldFilter?: string,
+    resourceOptions?: ResourcesFromOptions | null
+  ): string[] {
+    let selectedFields: string[] = [];
+    let fieldSpec: string = "";
+    if (resourceOptions?.options?.fields) {
+      fieldSpec = resourceOptions.options.fields;
+    } else if (fieldFilter) {
+      fieldSpec = fieldFilter;
+    }
+    if (fieldSpec) {
+      selectedFields = fieldSpec.split(",").map((f) => f.trim());
+    }
+    return selectedFields;
+  }
+
   async resourceFields_get(
     resourceOptions?: ResourcesFromOptions | null,
     fields?: string
   ): Promise<ResourcesByFields | null> {
-    let availableResources: ListResource | null | undefined;
+    let availableResources: Resource | ListResource | null | undefined;
     if (!resourceOptions) {
       availableResources = (await this.resources_getList())?.resources;
       if (!availableResources) return null;
@@ -132,17 +173,19 @@ export class ChRISResource {
     const resourceItems: Item[] | null =
       this.resourceItems_buildFromList(availableResources);
     if (!resourceItems || resourceItems.length === 0) return null;
-    const allFields = ["id", ...resourceItems[0].data.map((item) => item.name)];
-    let selectedFields: string[] = allFields;
-    let fieldSpec: string = "";
-    if (resourceOptions?.options?.fields) {
-      fieldSpec = resourceOptions.options.fields;
-    } else if (fields) {
-      fieldSpec = fields;
+
+    let selectedFields: string[] = this.fieldSpec_resolve(
+      fields,
+      resourceOptions
+    );
+    const resourcesFields: ResourceFieldsPerItem | null =
+      this.resourcesByFields_enumerate(resourceItems);
+    if (!selectedFields.length) {
+      if (resourcesFields) {
+        selectedFields = resourcesFields.fields;
+      }
     }
-    if (fieldSpec) {
-      selectedFields = fieldSpec.split(",").map((f) => f.trim());
-    }
+
     const resourcesByFields: ResourcesByFields = {
       resources: availableResources,
       items: resourceItems,
@@ -173,4 +216,22 @@ export class ChRISResource {
     }
     return { resources, options: params };
   }
+}
+
+export function resourceFields_get(
+  obj: Resource | ListResource,
+  fields: string[]
+): SimpleRecord | null {
+  const chrisResource = new ChRISResource();
+  const item: Item[] | null = chrisResource.resourceItems_buildFromList(obj);
+  const resourceData: FilteredResourceData | null =
+    chrisResource.resources_filterByFields({
+      resources: obj,
+      items: item,
+      fields: fields,
+    });
+  if (!resourceData) {
+    return null;
+  }
+  return resourceData.tableData[0];
 }
