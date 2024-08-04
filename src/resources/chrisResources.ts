@@ -1,5 +1,5 @@
 import Client from "@fnndsc/chrisapi";
-import { ListResource, Resource } from "@fnndsc/chrisapi";
+import { ListResource, Resource, ItemResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
 export interface SimpleRecord {
@@ -40,6 +40,9 @@ export interface FilteredResourceData {
 export class ChRISResource {
   private _client: Client | null = null;
   private _resourceName: string = "";
+  private _resourceList: ListResource | null = null;
+  private _resourceArray: ItemResource[] | null | undefined = null;
+  private _resourceItem: ItemResource | null = null;
   private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
 
   constructor() {
@@ -209,7 +212,9 @@ export class ChRISResource {
       this.resourceMethod = resourceMethod;
     }
     if (!this.resourceMethod) return null;
-    const resources = await this.resourceMethod(params);
+    const resources: ListResource | null = await this.resourceMethod(params);
+    this._resourceList = resources;
+    this._resourceArray = this._resourceList?.getItems();
     if (resources == undefined) {
       console.log(this._resourceName + " resource list returned 'undefined'");
       return { resources: null, options: params };
