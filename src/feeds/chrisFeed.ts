@@ -28,37 +28,6 @@ export class ChRISFeedGroup extends ChRISResourceGroup {
   }
 }
 
-// export class ChRISFeedGroup {
-//   private _client: Client | null;
-//   private _asset: ChRISResource;
-
-//   constructor() {
-//     this._client = chrisConnection.getClient();
-//     if (!this._client) {
-//       console.error(
-//         "Could not access ChRIS. Have you connected with the 'connect' command?"
-//       );
-//       process.exit(1);
-//     }
-//     this._asset = new ChRISResource();
-//     if (this._client) {
-//       this._asset.resource_bindGetMethodToObj(
-//         this._client,
-//         this._client.getFeeds
-//       );
-//     }
-//     this._asset.resourceName = "Feeds";
-//   }
-
-//   public get client(): Client | null {
-//     return this._client;
-//   }
-
-//   get asset(): ChRISResource {
-//     return this._asset;
-//   }
-// }
-
 export class ChRISFeed {
   private _client: Client | null;
 
