@@ -62,6 +62,13 @@ export class ChRISResource {
     this._resourceName = name;
   }
 
+  async resourceItem_delete(id: number): Promise<boolean> {
+    const res: ItemResource = this._resourceList?.getItem(id);
+    const delop = await res._delete();
+    // delop seems to be undefined
+    return true;
+  }
+
   loggedIn_check(): boolean {
     let loggedIn: boolean = true;
     if (!this._client) {
