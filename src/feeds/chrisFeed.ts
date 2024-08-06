@@ -1,16 +1,8 @@
 import Client from "@fnndsc/chrisapi";
 import { PluginInstance } from "@fnndsc/chrisapi";
 import { Feed } from "@fnndsc/chrisapi";
+import { chrisConnection } from "../connect/chrisConnection.js";
 import {
-  ChRISConnection,
-  chrisConnection,
-} from "../connect/chrisConnection.js";
-import {
-  ChRISResource,
-  ListOptions,
-  Item,
-  ResourceFieldsPerItem,
-  FilteredResourceData,
   SimpleRecord,
   resourceFields_get,
 } from "../resources/chrisResources.js";
