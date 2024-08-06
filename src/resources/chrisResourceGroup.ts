@@ -5,8 +5,9 @@ import { ChRISResource } from "../resources/chrisResources";
 export abstract class ChRISResourceGroup {
   protected _client: Client | null;
   protected _asset: ChRISResource;
+  protected _chrisObj: any;
 
-  constructor(resourceName: string, getMethod: string) {
+  constructor(resourceName: string, getMethod: string, chrisObj?: any) {
     this._client = chrisConnection.getClient();
     if (!this._client) {
       console.error(
@@ -14,11 +15,14 @@ export abstract class ChRISResourceGroup {
       );
       process.exit(1);
     }
+    if (!chrisObj) {
+      this._chrisObj = this._client;
+    }
     this._asset = new ChRISResource();
-    if (this._client) {
+    if (this._chrisObj) {
       this._asset.resource_bindGetMethodToObj(
-        this._client,
-        (this._client as any)[getMethod]
+        this._chrisObj,
+        (this._chrisObj as any)[getMethod]
       );
     }
     this._asset.resourceName = resourceName;
