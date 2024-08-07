@@ -17,13 +17,17 @@ export abstract class ChRISResourceGroup {
     }
     if (!chrisObj) {
       this._chrisObj = this._client;
+    } else {
+      this._chrisObj = chrisObj;
     }
     this._asset = new ChRISResource();
+    // process.stdout.write(`about to bind ${getMethod} to ${resourceName}... `);
     if (this._chrisObj) {
       this._asset.resource_bindGetMethodToObj(
         this._chrisObj,
         (this._chrisObj as any)[getMethod]
       );
+      // console.log("[ OK ]");
     }
     this._asset.resourceName = resourceName;
   }
