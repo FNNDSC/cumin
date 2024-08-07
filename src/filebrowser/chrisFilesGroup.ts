@@ -51,25 +51,7 @@ export class ChRISFilesGroup extends ChRISResourceGroup {
     return new ChRISFilesGroup(fileBrowserFolder, path);
   }
 
-  private async initializeAndBind(): Promise<void> {
-    if (!this._client) {
-      throw new ChRISConnectionError("ChRIS client is not initialized");
-    }
-
-    try {
-      this._fileBrowserFolderObj =
-        await this._client.getFileBrowserFolderByPath(this._path);
-    } catch (error) {
-      throw new ChRISInitializationError(
-        "Failed to get FileBrowserFolder: " +
-          (error instanceof Error ? error.message : String(error))
-      );
-    }
-
-    if (!this._fileBrowserFolderObj) {
-      throw new ChRISInitializationError(
-        "Failed to initialize FileBrowserFolder"
-      );
-    }
+  public get fileBrowserFolderObj(): FileBrowserFolder | null {
+    return this._fileBrowserFolderObj;
   }
 }
