@@ -1,15 +1,9 @@
+// chrisConnection.ts
+
 import fs from "fs";
 import path from "path";
-import os from "os";
 import Client from "@fnndsc/chrisapi";
-import { readFileSync } from "fs";
-import { join } from "path";
-
-// Read package.json
-const packageJson = JSON.parse(
-  readFileSync(join(__dirname, "../..", "package.json"), "utf-8"),
-);
-const name = packageJson.name;
+import { ConnectionConfig } from "../config/config";
 
 export { Client };
 
@@ -23,26 +17,16 @@ interface ConnectOptions {
 export class ChRISConnection {
   private authToken: string | null = null;
   private tokenFile: string;
-  private userFile: string;
   private user: string | null = null;
-  private configDir: string;
-  private instanceDir: string;
-  private chrisURLfile: string;
   private chrisURL: string | null = null;
   private client: Client | null = null;
   private instanceDataSet: boolean = false;
+  private config: ConnectionConfig;
 
-  constructor() {
-    const configBase: string =
-      process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-    this.configDir = path.join(configBase, name);
-    this.ensureDirExists(this.configDir);
-    this.userFile = path.join(this.configDir, "lastUser.txt");
-    this.instanceDir = "";
+  constructor(config: ConnectionConfig) {
+    this.config = config;
+    this.tokenFile = this.config.tokenFile;
     this.loadUser();
-    this.tokenFile = name.replace("/", "_") + "_token.txt";
-    this.chrisURLfile = "chrisurl.txt";
-    this.chrisURL = "";
     if (this.user) {
       this.instanceData_set(this.user);
       this.instanceDataSet = true;
@@ -50,26 +34,14 @@ export class ChRISConnection {
     this.client = null;
   }
 
-  private ensureDirExists(dir: string): void {
-    if (!fs.existsSync(dir)) {
-      try {
-        fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-      } catch (error) {
-        console.error("Error creating directory:", error);
-      }
-    }
-  }
-
   private instanceData_set(user: string): void {
-    this.instanceDir = path.join(this.configDir, user);
-    this.ensureDirExists(this.instanceDir);
-    this.tokenFile = path.join(this.instanceDir, this.tokenFile);
-    this.chrisURLfile = path.join(this.instanceDir, this.chrisURLfile);
+    this.config.setInstanceDir(user);
+    // this.tokenFile = path.join(this.config.instanceDir, this.tokenFile);
   }
 
   private userConfigSet(user: string, url: string): void {
     this.user = user;
-    this.saveToFile(this.userFile, user);
+    this.config.saveLastUser(user);
     if (!this.instanceDataSet) {
       this.instanceData_set(user);
     }
@@ -79,31 +51,37 @@ export class ChRISConnection {
     const { user, password, debug, url }: ConnectOptions = options;
     const authUrl: string = url + "auth-token/";
     this.chrisURL = url;
-
     console.log(`Connecting to ${url} with user ${user}`);
     this.userConfigSet(user, url);
-
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
         console.log("Auth token: " + this.authToken);
         this.saveToFile(this.tokenFile, this.authToken);
-        this.saveToFile(this.chrisURLfile, url);
+        this.config.saveChrisURL(url);
         console.log("Auth token saved successfully");
-        console.log("ChRIS URL  saved successfully");
+        console.log("ChRIS URL saved successfully");
         return this.authToken;
       } else {
         console.log("Failed to receive auth token");
         return null;
       }
     } catch (error) {
-      console.error("\nSome error seems to have been thrown while attempting to log in.");
-      console.error("If the ChRIS CUBE is reachable, then it's quite possible this means");
-      console.error("an incorrect login. Please check your login credentials carefully.");
-      console.error("Also, if your password has 'special' character, make sure how you");
+      console.error(
+        "\nSome error seems to have been thrown while attempting to log in."
+      );
+      console.error(
+        "If the ChRIS CUBE is reachable, then it's quite possible this means"
+      );
+      console.error(
+        "an incorrect login. Please check your login credentials carefully."
+      );
+      console.error(
+        "Also, if your password has 'special' character, make sure how you"
+      );
       console.error("are specifying it is compatible with your shell!");
       console.error("\nExiting to system with code 1...");
-      if(debug) {
+      if (debug) {
         throw error;
       }
       process.exit(1);
@@ -119,7 +97,7 @@ export class ChRISConnection {
 
   getChRISurl(): string | null {
     if (!this.chrisURL) {
-      this.loadChRISurl();
+      this.chrisURL = this.config.loadChrisURL();
     }
     return this.chrisURL;
   }
@@ -146,7 +124,7 @@ export class ChRISConnection {
     let loggedIn: boolean = true;
     if (!this.client) {
       console.log(
-        "(connect) Not connected to ChRIS. Please connect first using the connect command.",
+        "(connect) Not connected to ChRIS. Please connect first using the connect command."
       );
       loggedIn = false;
     }
@@ -172,20 +150,8 @@ export class ChRISConnection {
     }
   }
 
-  private saveToken(): void {
-    try {
-      fs.writeFileSync(this.tokenFile, this.authToken || "", { mode: 0o600 });
-    } catch (error) {
-      console.error("Error saving token:", error);
-    }
-  }
-
   private loadUser(): void {
-    try {
-      this.user = fs.readFileSync(this.userFile, "utf-8");
-    } catch (error) {
-      this.user = null;
-    }
+    this.user = this.config.loadLastUser();
   }
 
   private loadToken(): void {
@@ -195,14 +161,7 @@ export class ChRISConnection {
       this.authToken = null;
     }
   }
-
-  private loadChRISurl(): void {
-    try {
-      this.chrisURL = fs.readFileSync(this.chrisURLfile, "utf-8");
-    } catch (error) {
-      this.chrisURL = null;
-    }
-  }
 }
 
-export const chrisConnection = new ChRISConnection();
+const config = ConnectionConfig.getInstance();
+export const chrisConnection = new ChRISConnection(config);
