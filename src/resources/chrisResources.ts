@@ -132,9 +132,10 @@ export class ChRISResource {
   async resources_listAndFilterByOptions(
     options?: Partial<ListOptions>
   ): Promise<FilteredResourceData | null> {
-    const results: FilteredResourceData | null = this.resources_filterByFields(
-      await this.resourceFields_get(await this.resources_getList(options))
-    );
+    const results: FilteredResourceData | null =
+      await this.resources_filterByFields(
+        await this.resourceFields_get(await this.resources_getList(options))
+      );
     return results;
   }
 
@@ -205,6 +206,22 @@ export class ChRISResource {
     return resourcesByFields;
   }
 
+  options_prune(options?: ListOptions): ListOptions {
+    const params: ListOptions = {
+      limit: 20,
+      offset: 0,
+      ...options,
+    };
+    const filtparams: ListOptions = {
+      limit: params.limit,
+      offset: params.offset,
+    };
+    if (params.search !== undefined) {
+      filtparams.search = params.search;
+    }
+    return filtparams;
+  }
+
   async resources_getList(
     options?: Partial<ListOptions>,
     resourceMethod?: (params: ListOptions) => Promise<any>
@@ -214,12 +231,15 @@ export class ChRISResource {
       offset: 0,
       ...options,
     };
-
+    // Remove the "fields" otherwise fileops break
+    const { fields, ...pureparams }: ListOptions = params;
     if (resourceMethod) {
       this.resourceMethod = resourceMethod;
     }
     if (!this.resourceMethod) return null;
-    const resources: ListResource | null = await this.resourceMethod(params);
+    const resources: ListResource | null = await this.resourceMethod(
+      pureparams
+    );
     this._resourceList = resources;
     this._resourceArray = this._resourceList?.getItems();
     if (resources == undefined) {
