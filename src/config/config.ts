@@ -14,32 +14,44 @@ const name = packageJson.name;
 
 export interface ConnectionConfigOptions {
   configDir?: string;
-  instanceDir?: string;
   chrisURLfile?: string;
+  chrisURLfilepath?: string;
   userFile?: string;
+  userFilepath?: string;
+  userContextDir?: string;
+  userChRISContextDir?: string;
   currentDirectory?: string;
   tokenFile?: string;
+  tokenFilepath?: string;
 }
 
 export class ConnectionConfig {
   private static instance: ConnectionConfig;
 
   public readonly configDir: string;
-  public instanceDir: string;
-  public chrisURLfile: string;
+  public userContextDir: string;
+  public userChRISContextDir: string;
   public userFile: string;
+  public userFilepath: string;
+  public chrisURLfile: string;
+  public chrisURLfilepath: string;
   public tokenFile: string;
+  public tokenFilepath: string;
   public readonly currentDirectory: string;
 
   private constructor(options: ConnectionConfigOptions = {}) {
     const configBase =
       process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
     this.configDir = path.join(configBase, name);
-    this.instanceDir = options.instanceDir || "";
+    this.userFile = options.userFile || "lastUser.txt";
+    this.userFilepath =
+      options.userFilepath || path.join(this.configDir, this.userFile);
+    this.userContextDir = options.userContextDir || "";
+    this.userChRISContextDir = options.userChRISContextDir || "";
     this.chrisURLfile = options.chrisURLfile || "chrisurl.txt";
-    this.userFile =
-      options.userFile || path.join(this.configDir, "lastUser.txt");
-    this.tokenFile = options.tokenFile || name.replace("/", "_") + "_token.txt";
+    this.chrisURLfilepath = options.chrisURLfilepath || "";
+    this.tokenFile = name.replace("/", "_") + "_token.txt";
+    this.tokenFilepath = options.tokenFilepath || "";
     this.currentDirectory = options.currentDirectory || process.cwd();
 
     this.initialize();
@@ -54,14 +66,23 @@ export class ConnectionConfig {
     return ConnectionConfig.instance;
   }
 
-  private initialize(): void {
+  public initialize(): void {
     this.ensureDirExists(this.configDir);
-    const lastUser = this.loadLastUser();
-    if (lastUser) {
-      this.setInstanceDir(lastUser);
-      this.chrisURLfile = path.join(this.instanceDir, this.chrisURLfile);
-      this.tokenFile = path.join(this.instanceDir, this.tokenFile);
+    const lastUser: string | null = this.loadLastUser();
+    if (!lastUser) {
+      return;
     }
+    this.userContextDir = path.join(this.configDir, lastUser);
+    this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
+    const lastURL: string | null = this.loadChrisURL();
+    if (!lastURL) {
+      return;
+    }
+    this.userChRISContextDir = path.join(
+      this.userContextDir,
+      this.uriToDir(lastURL)
+    );
+    this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
   private ensureDirExists(dir: string): void {
@@ -70,25 +91,41 @@ export class ConnectionConfig {
     }
   }
 
-  public setInstanceDir(user: string): void {
-    this.instanceDir = path.join(this.configDir, user);
-    this.ensureDirExists(this.instanceDir);
+  public uriToDir(uri: string): string {
+    return uri.replace(/[/:]/g, "_");
+  }
+
+  public setContext(user: string, url?: string): void {
+    this.saveLastUser(user);
+    this.userContextDir = path.join(this.configDir, user);
+    this.ensureDirExists(this.userContextDir);
+    this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
+    if (!url) {
+      return;
+    }
+    this.saveChrisURL(url);
+    this.userChRISContextDir = path.join(
+      this.userContextDir,
+      this.uriToDir(url)
+    );
+    this.ensureDirExists(this.userChRISContextDir);
+    this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
   public saveLastUser(user: string): void {
-    this.writeFile(this.userFile, user);
+    this.writeFile(this.userFilepath, user);
   }
 
   public loadLastUser(): string | null {
-    return this.readFile(this.userFile);
+    return this.readFile(this.userFilepath);
   }
 
   public saveChrisURL(url: string): void {
-    this.writeFile(this.chrisURLfile, url);
+    this.writeFile(this.chrisURLfilepath, url);
   }
 
   public loadChrisURL(): string | null {
-    return this.readFile(this.chrisURLfile);
+    return this.readFile(this.chrisURLfilepath);
   }
 
   private writeFile(file: string, content: string): void {
