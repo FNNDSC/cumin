@@ -20,45 +20,30 @@ export class ChRISConnection {
   private user: string | null = null;
   private chrisURL: string | null = null;
   private client: Client | null = null;
-  private instanceDataSet: boolean = false;
   private config: ConnectionConfig;
 
   constructor(config: ConnectionConfig) {
     this.config = config;
-    this.tokenFile = this.config.tokenFile;
-    this.loadUser();
-    if (this.user) {
-      this.instanceData_set(this.user);
-      this.instanceDataSet = true;
-    }
-    this.client = null;
+    this.tokenFile = this.config.tokenFilepath;
   }
 
-  private instanceData_set(user: string): void {
-    this.config.setInstanceDir(user);
-    // this.tokenFile = path.join(this.config.instanceDir, this.tokenFile);
-  }
-
-  private userConfigSet(user: string, url: string): void {
-    this.user = user;
-    this.config.saveLastUser(user);
-    if (!this.instanceDataSet) {
-      this.instanceData_set(user);
-    }
+  setContext(context: string): void {
+    console.log(`setting context logic to ${context}`);
   }
 
   async connect(options: ConnectOptions): Promise<string | null> {
     const { user, password, debug, url }: ConnectOptions = options;
     const authUrl: string = url + "auth-token/";
+    this.user = user;
     this.chrisURL = url;
     console.log(`Connecting to ${url} with user ${user}`);
-    this.userConfigSet(user, url);
+    this.config.setContext(user, url);
+    this.tokenFile = this.config.tokenFilepath;
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
         console.log("Auth token: " + this.authToken);
         this.saveToFile(this.tokenFile, this.authToken);
-        this.config.saveChrisURL(url);
         console.log("Auth token saved successfully");
         console.log("ChRIS URL saved successfully");
         return this.authToken;
