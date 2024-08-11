@@ -12,6 +12,22 @@ const packageJson = JSON.parse(
 );
 const name = packageJson.name;
 
+export function writeFile(file: string, content: string): void {
+  try {
+    fs.writeFileSync(file, content, { mode: 0o600 });
+  } catch (error) {
+    console.error(`Error writing to file ${file}:`, error);
+  }
+}
+
+export function readFile(file: string): string | null {
+  try {
+    return fs.readFileSync(file, "utf-8");
+  } catch (error) {
+    return null;
+  }
+}
+
 export interface ConnectionConfigOptions {
   configDir?: string;
   chrisURLfile?: string;
@@ -23,6 +39,52 @@ export interface ConnectionConfigOptions {
   currentDirectory?: string;
   tokenFile?: string;
   tokenFilepath?: string;
+}
+
+export interface SessionConfigOptions {
+  cwdFile?: string;
+  cwdFilename?: string;
+}
+
+export class SessionConfig {
+  private static instance: SessionConfig;
+
+  public cwdFile: string;
+  public cwdFilename: string;
+  private connectionConfig: ConnectionConfig;
+
+  private constructor(
+    options: SessionConfigOptions = {},
+    connectionConfig: ConnectionConfig
+  ) {
+    this.cwdFile = options.cwdFile || "cwd.txt";
+    this.cwdFilename = options.cwdFilename || "";
+    this.connectionConfig = connectionConfig;
+
+    this.initialize();
+  }
+
+  get connection(): ConnectionConfig {
+    return connectionConfig;
+  }
+
+  public static getInstance(options?: SessionConfigOptions): SessionConfig {
+    if (!SessionConfig.instance) {
+      SessionConfig.instance = new SessionConfig(options, connectionConfig);
+    }
+    return SessionConfig.instance;
+  }
+
+  public initialize(): void {
+    this.cwdFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.cwdFile
+    );
+  }
+
+  public setPathContext(path: string): void {
+    writeFile(this.cwdFilename, path);
+  }
 }
 
 export class ConnectionConfig {
@@ -92,7 +154,29 @@ export class ConnectionConfig {
   }
 
   public uriToDir(uri: string): string {
-    return uri.replace(/[/:]/g, "_");
+    return uri
+      .replace("://", "___") // Use triple underscore for protocol separator
+      .replace(/[/:]/g, "_")
+      .replace(/\./g, "--"); // Use double dash for dots
+  }
+
+  public dirToUri(dir: string): string {
+    let uri = dir
+      .replace(/--/g, ".") // Convert double dashes back to dots
+      .replace(/___/g, "://"); // Convert triple underscore back to protocol separator
+
+    // Replace remaining underscores with slashes, but not in the protocol and domain part
+    const parts = uri.split("://");
+    if (parts.length !== 2) {
+      throw new Error("Invalid directory name");
+    }
+
+    const [protocol, rest] = parts;
+    const domainAndPath = rest.split("/", 1);
+    const domain = domainAndPath[0];
+    const path = rest.slice(domain.length);
+
+    return `${protocol}://${domain}${path.replace(/_/g, "/")}`;
   }
 
   public setContext(user: string, url?: string): void {
@@ -113,36 +197,21 @@ export class ConnectionConfig {
   }
 
   public saveLastUser(user: string): void {
-    this.writeFile(this.userFilepath, user);
+    writeFile(this.userFilepath, user);
   }
 
   public loadLastUser(): string | null {
-    return this.readFile(this.userFilepath);
+    return readFile(this.userFilepath);
   }
 
   public saveChrisURL(url: string): void {
-    this.writeFile(this.chrisURLfilepath, url);
+    writeFile(this.chrisURLfilepath, url);
   }
 
   public loadChrisURL(): string | null {
-    return this.readFile(this.chrisURLfilepath);
-  }
-
-  private writeFile(file: string, content: string): void {
-    try {
-      fs.writeFileSync(file, content, { mode: 0o600 });
-    } catch (error) {
-      console.error(`Error writing to file ${file}:`, error);
-    }
-  }
-
-  private readFile(file: string): string | null {
-    try {
-      return fs.readFileSync(file, "utf-8");
-    } catch (error) {
-      return null;
-    }
+    return readFile(this.chrisURLfilepath);
   }
 }
 
 export const connectionConfig = ConnectionConfig.getInstance();
+export const sessionConfig = SessionConfig.getInstance();
