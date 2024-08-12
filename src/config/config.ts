@@ -12,12 +12,15 @@ const packageJson = JSON.parse(
 );
 const name = packageJson.name;
 
-export function writeFile(file: string, content: string): void {
+export function writeFile(file: string, content: string): boolean {
+  let status: boolean = false;
   try {
     fs.writeFileSync(file, content, { mode: 0o600 });
+    status = true;
   } catch (error) {
     console.error(`Error writing to file ${file}:`, error);
   }
+  return true;
 }
 
 export function readFile(file: string): string | null {
@@ -28,22 +31,11 @@ export function readFile(file: string): string | null {
   }
 }
 
-export interface ConnectionConfigOptions {
-  configDir?: string;
-  chrisURLfile?: string;
-  chrisURLfilepath?: string;
-  userFile?: string;
-  userFilepath?: string;
-  userContextDir?: string;
-  userChRISContextDir?: string;
-  currentDirectory?: string;
-  tokenFile?: string;
-  tokenFilepath?: string;
-}
-
 export interface SessionConfigOptions {
   cwdFile?: string;
   cwdFilename?: string;
+  feedFile?: string;
+  feedFilename?: string;
 }
 
 export class SessionConfig {
@@ -51,6 +43,8 @@ export class SessionConfig {
 
   public cwdFile: string;
   public cwdFilename: string;
+  public feedFile: string;
+  public feedFilename: string;
   private connectionConfig: ConnectionConfig;
 
   private constructor(
@@ -59,6 +53,8 @@ export class SessionConfig {
   ) {
     this.cwdFile = options.cwdFile || "cwd.txt";
     this.cwdFilename = options.cwdFilename || "";
+    this.feedFile = options.cwdFile || "feed.txt";
+    this.feedFilename = options.cwdFilename || "";
     this.connectionConfig = connectionConfig;
 
     this.initialize();
@@ -80,11 +76,40 @@ export class SessionConfig {
       this.connectionConfig.userChRISContextDir,
       this.cwdFile
     );
+    this.feedFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.feedFile
+    );
   }
 
-  public setPathContext(path: string): void {
-    writeFile(this.cwdFilename, path);
+  public setPathContext(path: string): boolean {
+    return writeFile(this.cwdFilename, path);
   }
+
+  public getPathContext(): string | null {
+    return readFile(this.cwdFilename);
+  }
+
+  public setFeedContext(feedID: string): boolean {
+    return writeFile(this.feedFilename, feedID);
+  }
+
+  public getFeedContext(): string | null {
+    return readFile(this.feedFilename);
+  }
+}
+
+export interface ConnectionConfigOptions {
+  configDir?: string;
+  chrisURLfile?: string;
+  chrisURLfilepath?: string;
+  userFile?: string;
+  userFilepath?: string;
+  userContextDir?: string;
+  userChRISContextDir?: string;
+  currentDirectory?: string;
+  tokenFile?: string;
+  tokenFilepath?: string;
 }
 
 export class ConnectionConfig {
@@ -156,27 +181,31 @@ export class ConnectionConfig {
   public uriToDir(uri: string): string {
     return uri
       .replace("://", "___") // Use triple underscore for protocol separator
-      .replace(/[/:]/g, "_")
+      .replace(/:/g, "===") // Use triple equals for colon (to handle port numbers)
+      .replace(/[/]/g, "_") // Replace slashes with single underscore
       .replace(/\./g, "--"); // Use double dash for dots
   }
 
   public dirToUri(dir: string): string {
     let uri = dir
       .replace(/--/g, ".") // Convert double dashes back to dots
-      .replace(/___/g, "://"); // Convert triple underscore back to protocol separator
+      .replace(/___/g, "://") // Convert triple underscore back to protocol separator
+      .replace(/===/g, ":"); // Convert triple equals back to colon
 
-    // Replace remaining underscores with slashes, but not in the protocol and domain part
+    // Split the URI into protocol, domain (including port if present), and path
     const parts = uri.split("://");
     if (parts.length !== 2) {
       throw new Error("Invalid directory name");
     }
 
     const [protocol, rest] = parts;
-    const domainAndPath = rest.split("/", 1);
-    const domain = domainAndPath[0];
-    const path = rest.slice(domain.length);
+    // Split at the first underscore, which should be after the domain and port
+    const [domainPart, ...pathParts] = rest.split("_");
+    // Join the path parts back with slashes
+    const path = pathParts.join("/");
 
-    return `${protocol}://${domain}${path.replace(/_/g, "/")}`;
+    // Return the reconstructed URI
+    return `${protocol}://${domainPart}/${path}`;
   }
 
   public setContext(user: string, url?: string): void {
@@ -196,20 +225,21 @@ export class ConnectionConfig {
     this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
-  public saveLastUser(user: string): void {
-    writeFile(this.userFilepath, user);
+  public saveLastUser(user: string): boolean {
+    return writeFile(this.userFilepath, user);
   }
 
   public loadLastUser(): string | null {
     return readFile(this.userFilepath);
   }
 
-  public saveChrisURL(url: string): void {
-    writeFile(this.chrisURLfilepath, url);
+  public saveChrisURL(url: string): boolean {
+    return writeFile(this.chrisURLfilepath, url);
   }
 
   public loadChrisURL(): string | null {
-    return readFile(this.chrisURLfilepath);
+    const url: string | null = readFile(this.chrisURLfilepath);
+    return url;
   }
 }
 
