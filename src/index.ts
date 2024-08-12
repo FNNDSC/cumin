@@ -4,6 +4,7 @@ export * from "./";
 export * from "./config/config";
 export * from "./feeds/chrisFeed";
 export * from "./connect/chrisConnection";
+export * from "./context/chrisContext";
 export * from "./plugins/chrisPlugins";
 export * from "./plugins/chrisPluginMetaPlugins";
 export * from "./resources/chrisResources";
