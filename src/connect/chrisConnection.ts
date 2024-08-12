@@ -27,10 +27,6 @@ export class ChRISConnection {
     this.tokenFile = this.config.tokenFilepath;
   }
 
-  setContext(context: string): void {
-    console.log(`setting context logic to ${context}`);
-  }
-
   async connect(options: ConnectOptions): Promise<string | null> {
     const { user, password, debug, url }: ConnectOptions = options;
     const authUrl: string = url + "auth-token/";
@@ -85,6 +81,15 @@ export class ChRISConnection {
       this.chrisURL = this.config.loadChrisURL();
     }
     return this.chrisURL;
+  }
+
+  refreshClient(): Client | null {
+    this.chrisURL = this.getChRISurl();
+    this.authToken = this.getAuthToken();
+    if (this.chrisURL && this.authToken) {
+      this.client = new Client(this.chrisURL, { token: this.authToken });
+    }
+    return this.client;
   }
 
   getClient(): Client | null {
