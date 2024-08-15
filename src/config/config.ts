@@ -36,6 +36,8 @@ export interface SessionConfigOptions {
   cwdFilename?: string;
   feedFile?: string;
   feedFilename?: string;
+  pluginFile?: string;
+  pluginFilename?: string;
 }
 
 export class SessionConfig {
@@ -45,6 +47,8 @@ export class SessionConfig {
   public cwdFilename: string;
   public feedFile: string;
   public feedFilename: string;
+  public pluginFile: string;
+  public pluginFilename: string;
   private connectionConfig: ConnectionConfig;
 
   private constructor(
@@ -53,8 +57,10 @@ export class SessionConfig {
   ) {
     this.cwdFile = options.cwdFile || "cwd.txt";
     this.cwdFilename = options.cwdFilename || "";
-    this.feedFile = options.cwdFile || "feed.txt";
-    this.feedFilename = options.cwdFilename || "";
+    this.feedFile = options.feedFile || "feed.txt";
+    this.feedFilename = options.feedFilename || "";
+    this.pluginFile = options.pluginFile || "plugin.txt";
+    this.pluginFilename = options.pluginFilename || "";
     this.connectionConfig = connectionConfig;
 
     this.initialize();
@@ -80,6 +86,10 @@ export class SessionConfig {
       this.connectionConfig.userChRISContextDir,
       this.feedFile
     );
+    this.pluginFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.pluginFile
+    );
   }
 
   public setPathContext(path: string): boolean {
@@ -96,6 +106,14 @@ export class SessionConfig {
 
   public getFeedContext(): string | null {
     return readFile(this.feedFilename);
+  }
+
+  public setPluginContext(pluginID: string): boolean {
+    return writeFile(this.pluginFilename, pluginID);
+  }
+
+  public getPluginContext(): string | null {
+    return readFile(this.pluginFilename);
   }
 }
 
