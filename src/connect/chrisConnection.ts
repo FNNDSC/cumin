@@ -4,6 +4,12 @@ import fs from "fs";
 import path from "path";
 import Client from "@fnndsc/chrisapi";
 import { ConnectionConfig } from "../config/config";
+import {
+  parseChRISContextURL,
+  SingleContext,
+  Context,
+  chrisContext,
+} from "../context/chrisContext";
 
 export { Client };
 
@@ -67,6 +73,54 @@ export class ChRISConnection {
       }
       process.exit(1);
     }
+  }
+
+  setContext(context: string): boolean {
+    console.log(`Setting context: ${context}`);
+    const parsedContext: SingleContext = parseChRISContextURL(context);
+    console.log("Parsed context:", parsedContext);
+
+    let success: boolean = true;
+    let needsRefresh: boolean = false;
+
+    if (parsedContext.user) {
+      success =
+        success &&
+        chrisContext.setCurrent(Context.ChRISuser, parsedContext.user);
+      this.user = parsedContext.user;
+      needsRefresh = true;
+      this.config.setContext(
+        parsedContext.user,
+        parsedContext.URL || undefined
+      );
+    }
+
+    if (parsedContext.URL) {
+      success =
+        success && chrisContext.setCurrent(Context.ChRISURL, parsedContext.URL);
+      this.chrisURL = parsedContext.URL;
+      needsRefresh = true;
+      this.config.setContext(this.user || "", parsedContext.URL);
+    }
+
+    if (parsedContext.folder) {
+      success =
+        success &&
+        chrisContext.setCurrent(Context.ChRISfolder, parsedContext.folder);
+    }
+
+    if (parsedContext.feed) {
+      success =
+        success &&
+        chrisContext.setCurrent(Context.ChRISfeed, parsedContext.feed);
+    }
+
+    // Refresh the client with the new context
+    if (needsRefresh) {
+      this.refreshClient();
+    }
+
+    return success;
   }
 
   getAuthToken(): string | null {
