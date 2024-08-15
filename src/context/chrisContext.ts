@@ -7,11 +7,13 @@ export enum Context {
   ChRISuser,
   ChRISfolder,
   ChRISfeed,
+  ChRISplugin,
 }
 
 export interface URLContext {
   folder: string | null;
   feed: string | null;
+  plugin: string | null;
   token: string | null;
 }
 
@@ -25,6 +27,43 @@ export interface UserContext {
     [url: string]: URLContext;
   };
   currentURL: string | null;
+}
+
+export function parseChRISContextURL(url: string): SingleContext {
+  const result: SingleContext = {
+    URL: null,
+    user: null,
+    folder: null,
+    feed: null,
+    plugin: null,
+    token: null,
+  };
+
+  // Split the URL at the @ symbol
+  const parts = url.split("@");
+  if (parts.length > 1) {
+    result.user = parts[0];
+    url = parts[1];
+  }
+
+  // Extract the base URL
+  const urlMatch = url.match(/(https?:\/\/[^\/]+\/[^?]+)/);
+  if (urlMatch) {
+    result.URL = urlMatch[1];
+  }
+
+  // Extract query parameters
+  const queryString = url.split("?")[1];
+  if (queryString) {
+    const queryParams = new URLSearchParams(queryString);
+
+    result.folder = queryParams.get("path");
+    result.feed = queryParams.get("feed");
+    result.plugin = queryParams.get("plugin");
+    // Note: token is not present in the URL, so it remains null
+  }
+
+  return result;
 }
 
 export interface FullContext {
@@ -41,11 +80,13 @@ export class ChrisContext {
     currentUser: null,
     currentURL: null,
   };
+
   private singleContext: SingleContext = {
     URL: null,
     user: null,
     folder: null,
     feed: null,
+    plugin: null,
     token: null,
   };
 
@@ -85,6 +126,9 @@ export class ChrisContext {
         this.fullContext.users[user].urls[url] = {
           folder: readFile(path.join(userDir, urlDir, sessionConfig.cwdFile)),
           feed: readFile(path.join(userDir, urlDir, sessionConfig.feedFile)),
+          plugin: readFile(
+            path.join(userDir, urlDir, sessionConfig.pluginFile)
+          ),
           token: readFile(
             path.join(userDir, urlDir, sessionConfig.connection.tokenFile)
           ),
@@ -121,6 +165,14 @@ export class ChrisContext {
     return sessionConfig.setFeedContext(feedID);
   }
 
+  ChRISplugin_set(pluginID: string): boolean {
+    return sessionConfig.setPluginContext(pluginID);
+  }
+
+  ChRISplugin_get(): string | null {
+    return sessionConfig.getPluginContext();
+  }
+
   get folderpath(): string | null {
     return sessionConfig.getPathContext();
   }
@@ -130,6 +182,7 @@ export class ChrisContext {
     this.singleContext.user = this.ChRISuser_get();
     this.singleContext.folder = this.ChRISfolder_get();
     this.singleContext.feed = this.ChRISfeed_get();
+    this.singleContext.plugin = this.ChRISplugin_get();
   }
 
   getCurrent(context: Context): string | null {
@@ -143,6 +196,8 @@ export class ChrisContext {
         return this.singleContext.folder;
       case Context.ChRISfeed:
         return this.singleContext.feed;
+      case Context.ChRISplugin:
+        return this.singleContext.plugin;
     }
   }
 
@@ -164,6 +219,10 @@ export class ChrisContext {
       case Context.ChRISfeed:
         this.singleContext.feed = value;
         status = this.ChRISfeed_set(value);
+        break;
+      case Context.ChRISplugin:
+        this.singleContext.plugin = value;
+        status = this.ChRISplugin_set(value);
         break;
     }
     sessionConfig.connection.initialize();
