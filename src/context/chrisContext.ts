@@ -57,7 +57,7 @@ export function parseChRISContextURL(url: string): SingleContext {
   if (queryString) {
     const queryParams = new URLSearchParams(queryString);
 
-    result.folder = queryParams.get("path");
+    result.folder = queryParams.get("folder");
     result.feed = queryParams.get("feed");
     result.plugin = queryParams.get("plugin");
     // Note: token is not present in the URL, so it remains null
