@@ -19,7 +19,7 @@ export interface Item {
 
 interface ResourcesFromOptions {
   resources: ListResource | Resource | null;
-  options?: ListOptions;
+  options?: ListOptions | null;
 }
 
 export interface ResourceFieldsPerItem {
@@ -41,6 +41,7 @@ export class ChRISResource {
   private _client: Client | null = null;
   private _resourceName: string = "";
   private _resourceList: ListResource | null = null;
+  private _resourceArrayItems: Item[] | null = null;
   private _resourceArray: ItemResource[] | null | undefined = null;
   private _resourceItem: ItemResource | null = null;
   private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
@@ -83,15 +84,14 @@ export class ChRISResource {
   resourceItems_buildFromList(
     resources: ListResource | Resource | null
   ): Item[] | null {
-    if (resources) {
-      return resources.collection.items.map((item: any) => ({
-        data: item.data,
-        href: item.href,
-        links: item.links,
-      }));
-    } else {
+    if (!resources) {
       return null;
     }
+    return resources.collection.items.map((item: any) => ({
+      data: item.data,
+      href: item.href,
+      links: item.links,
+    }));
   }
 
   resource_bindGetMethodToObj(
@@ -102,6 +102,16 @@ export class ChRISResource {
     // this._resourceObj = obj;
     this.resourceMethod = resourceMethod.bind(obj);
     if (resourceName) this._resourceName = resourceName;
+  }
+
+  async resources_listAndFilterByOptions(
+    options?: Partial<ListOptions>
+  ): Promise<FilteredResourceData | null> {
+    const results: FilteredResourceData | null =
+      await this.resources_filterByFields(
+        await this.resourceFields_get(await this.resources_getList(options))
+      );
+    return results;
   }
 
   resources_filterByFields(
@@ -129,20 +139,10 @@ export class ChRISResource {
     return { tableData, selectedFields };
   }
 
-  async resources_listAndFilterByOptions(
-    options?: Partial<ListOptions>
-  ): Promise<FilteredResourceData | null> {
-    const results: FilteredResourceData | null =
-      await this.resources_filterByFields(
-        await this.resourceFields_get(await this.resources_getList(options))
-      );
-    return results;
-  }
-
   resourcesByFields_enumerate(
     items: Item[] | null
   ): ResourceFieldsPerItem | null {
-    if (!items) {
+    if (!items || !items.length) {
       return null;
     }
     const allFields = ["id", ...items[0].data.map((item) => item.name)];
@@ -155,12 +155,12 @@ export class ChRISResource {
 
   fieldSpec_resolve(
     fieldFilter?: string,
-    resourceOptions?: ResourcesFromOptions | null
+    options?: ListOptions | null
   ): string[] {
     let selectedFields: string[] = [];
     let fieldSpec: string = "";
-    if (resourceOptions?.options?.fields) {
-      fieldSpec = resourceOptions.options.fields;
+    if (options?.fields) {
+      fieldSpec = options.fields;
     } else if (fieldFilter) {
       fieldSpec = fieldFilter;
     }
@@ -171,82 +171,136 @@ export class ChRISResource {
   }
 
   async resourceFields_get(
-    resourceOptions?: ResourcesFromOptions | null,
+    options?: ListOptions | null,
     fields?: string
   ): Promise<ResourcesByFields | null> {
-    let availableResources: Resource | ListResource | null | undefined;
-    if (!resourceOptions) {
-      availableResources = (await this.resources_getList())?.resources;
-      if (!availableResources) return null;
-    } else {
-      availableResources = resourceOptions.resources;
+    if (!this._resourceList) {
+      await this.resources_getList();
     }
-    const resourceItems: Item[] | null =
-      this.resourceItems_buildFromList(availableResources);
-    if (!resourceItems || resourceItems.length === 0) return null;
-
-    let selectedFields: string[] = this.fieldSpec_resolve(
-      fields,
-      resourceOptions
-    );
+    if (!this._resourceArrayItems) {
+      return null;
+    }
+    let selectedFields: string[] = this.fieldSpec_resolve(fields, options);
     const resourcesFields: ResourceFieldsPerItem | null =
-      this.resourcesByFields_enumerate(resourceItems);
+      this.resourcesByFields_enumerate(this._resourceArrayItems);
+    if (!resourcesFields) {
+      return null;
+    }
     if (!selectedFields.length) {
       if (resourcesFields) {
         selectedFields = resourcesFields.fields;
       }
     }
-
     const resourcesByFields: ResourcesByFields = {
-      resources: availableResources,
-      items: resourceItems,
-      options: resourceOptions?.options,
+      resources: this._resourceList,
+      items: this._resourceArrayItems,
+      options: options,
       fields: selectedFields,
     };
     return resourcesByFields;
   }
 
-  options_prune(options?: ListOptions): ListOptions {
+  async resources_getItems(
+    options?: Partial<ListOptions>
+  ): Promise<ItemResource[] | null> {
     const params: ListOptions = {
-      limit: 20,
-      offset: 0,
-      ...options,
+      limit: options?.limit ?? 20,
+      offset: options?.offset ?? 0,
     };
-    const filtparams: ListOptions = {
-      limit: params.limit,
-      offset: params.offset,
-    };
-    if (params.search !== undefined) {
-      filtparams.search = params.search;
+    if (!this.resourceMethod) {
+      return null;
     }
-    return filtparams;
+    const resources: ListResource | null = await this.resourceMethod(params);
+    this._resourceArray = this._resourceList?.getItems();
+    if (this._resourceArray) {
+      console.log(this._resourceArray);
+      return this._resourceArray;
+    }
+    return null;
+  }
+
+  options_simplify(options: ListOptions): ListOptions {
+    const params: ListOptions = {
+      limit: options?.limit ?? 20,
+      offset: options?.offset ?? 0,
+    };
+    return params;
+  }
+
+  private applyAdditionalFiltering(originalParams: ListOptions): any[] | null {
+    if (!this._resourceArrayItems || this._resourceArrayItems.length === 0) {
+      return null;
+    }
+
+    const filteredItems = this._resourceArrayItems.filter((item) => {
+      return Object.entries(originalParams).every(([paramKey, paramValue]) => {
+        // Skip non-search related parameters
+        if (["limit", "offset"].includes(paramKey)) {
+          return true;
+        }
+
+        // Find the corresponding data item
+        const dataItem = item.data.find((d) => d.name === paramKey);
+        if (!dataItem) {
+          return false; // If the field is not found, it doesn't match the filter
+        }
+
+        const itemValue = String(dataItem.value).toLowerCase();
+        const searchValue = String(paramValue).toLowerCase();
+
+        // Perform exact match for 'id', partial match for other fields
+        if (paramKey === "id") {
+          return itemValue === searchValue;
+        } else {
+          return itemValue.includes(searchValue);
+        }
+      });
+    });
+
+    return filteredItems.length > 0 ? filteredItems : null;
   }
 
   async resources_getList(
     options?: Partial<ListOptions>,
     resourceMethod?: (params: ListOptions) => Promise<any>
-  ): Promise<ResourcesFromOptions | null> {
+  ): Promise<ListOptions> {
     const params: ListOptions = {
       limit: 20,
       offset: 0,
       ...options,
     };
-    // Remove the "fields" otherwise fileops break
+    // Remove the "fields" otherwise some list resource ops break
     const { fields, ...pureparams }: ListOptions = params;
+    let simplifiedParams: ListOptions = pureparams;
     if (resourceMethod) {
       this.resourceMethod = resourceMethod;
     }
-    if (!this.resourceMethod) return null;
-    const resources: ListResource | null = await this.resourceMethod(
-      pureparams
-    );
+    if (!this.resourceMethod) return params;
+    let resources: ListResource | null;
+    try {
+      resources = await this.resourceMethod(pureparams);
+    } catch (error) {
+      simplifiedParams = this.options_simplify(pureparams);
+      resources = await this.resourceMethod(simplifiedParams);
+    }
+    if (resources == undefined || resources == null) {
+      console.log(
+        this._resourceName + " resource list returned 'undefined' or 'null'"
+      );
+      return params;
+    }
     this._resourceList = resources;
     this._resourceArray = this._resourceList?.getItems();
-    if (resources == undefined) {
-      console.log(this._resourceName + " resource list returned 'undefined'");
-      return { resources: null, options: params };
+    this._resourceArrayItems = this.resourceItems_buildFromList(resources);
+    if (Object.keys(pureparams).length > Object.keys(simplifiedParams).length) {
+      const filteredItems = this.applyAdditionalFiltering(pureparams);
+      if (filteredItems === null) {
+        console.log("Warning: No items match the search criteria.");
+      }
+      this._resourceArrayItems = filteredItems;
     }
-    return { resources, options: params };
+
+    return params;
   }
 }
 
