@@ -76,9 +76,7 @@ export class ChRISConnection {
   }
 
   setContext(context: string): boolean {
-    console.log(`Setting context: ${context}`);
     const parsedContext: SingleContext = parseChRISContextURL(context);
-    console.log("Parsed context:", parsedContext);
 
     let success: boolean = true;
     let needsRefresh: boolean = false;
