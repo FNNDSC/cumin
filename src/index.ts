@@ -12,6 +12,7 @@ export * from "./resources/chrisResourceGroup";
 export * from "./filebrowser/chrisFileBrowser";
 export * from "./filebrowser/chrisFiles";
 export * from "./filebrowser/chrisFilesGroup";
+export * from "./io/chrisIO";
 export * from "./utils/keypair";
 
 export async function getChrisVersion(url: string): Promise<string> {
