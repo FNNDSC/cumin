@@ -59,10 +59,17 @@ export function parseChRISContextURL(url: string): SingleContext {
 
     result.folder = queryParams.get("folder");
     result.feed = queryParams.get("feed");
-    result.plugin = queryParams.get("plugin");
+
+    // Handle 'plugin' matches with an "includes" vs "equals"
+    for (const [key, value] of queryParams.entries()) {
+      if (key.includes("plugin")) {
+        result.plugin = value;
+        break; // Stop after finding the first match
+      }
+    }
+
     // Note: token is not present in the URL, so it remains null
   }
-
   return result;
 }
 
