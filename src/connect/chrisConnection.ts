@@ -113,6 +113,12 @@ export class ChRISConnection {
         chrisContext.setCurrent(Context.ChRISfeed, parsedContext.feed);
     }
 
+    if (parsedContext.plugin) {
+      success =
+        success &&
+        chrisContext.setCurrent(Context.ChRISplugin, parsedContext.plugin);
+    }
+
     // Refresh the client with the new context
     if (needsRefresh) {
       this.refreshClient();
