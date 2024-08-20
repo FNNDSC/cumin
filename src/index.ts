@@ -7,6 +7,8 @@ export * from "./connect/chrisConnection";
 export * from "./context/chrisContext";
 export * from "./plugins/chrisPlugins";
 export * from "./plugins/chrisPluginMetaPlugins";
+export * from "./plugins/chrisPluginSystemGroup";
+export * from "./plugins/chrisPluginContextGroup";
 export * from "./resources/chrisResources";
 export * from "./resources/chrisResourceGroup";
 export * from "./filebrowser/chrisFileBrowser";
