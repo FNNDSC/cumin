@@ -11,7 +11,7 @@ import { ChRISPlugin } from "../plugins/chrisPlugins.js";
 import {
   QueryHits,
   applyKeyPairParams,
-  ChRISObjectDesc,
+  ChRISObjectParams,
 } from "../utils/keypair.js";
 
 export class ChRISFeedGroup extends ChRISResourceGroup {
@@ -60,12 +60,13 @@ export class ChRISFeed {
     if (!feedDetail) {
       return null;
     }
+    feedDetail.pluginInstance = pluginInstance;
     return feedDetail;
   }
 
   async createFromDirs(
     dirs: string,
-    feedParams: ChRISObjectDesc
+    feedParams: ChRISObjectParams
   ): Promise<SimpleRecord | null> {
     if (!this._client) {
       return null;
@@ -87,7 +88,7 @@ export class ChRISFeed {
       );
       pluginInstance = await this._client.createPluginInstance(
         pluginID,
-        createParams as ChRISObjectDesc & { previous_id: 0 }
+        createParams as ChRISObjectParams & { previous_id: 0 }
       );
     } catch (error: unknown) {
       return this.error_parse(error, "creating feed");
