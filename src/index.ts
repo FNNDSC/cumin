@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 export * from "./";
+export * from "./error/errorStack";
 export * from "./config/config";
 export * from "./feeds/chrisFeed";
 export * from "./connect/chrisConnection";
