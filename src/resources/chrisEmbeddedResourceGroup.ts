@@ -1,6 +1,7 @@
 import { ChRISResourceGroup } from "../resources/chrisResourceGroup";
 import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection";
+import { errorStack } from "../error/errorStack";
 import Client from "@fnndsc/chrisapi";
 
 export class ChRISConnectionError extends Error {
@@ -70,20 +71,39 @@ export class ChRISEmbeddedResourceGroup<
     resourceName: string,
     getMethod: string,
     context: string
-  ): Promise<ChRISEmbeddedResourceGroup<T>> {
-    const chrisContextObj: T = await this.initializeContext<T>(context);
-    const params: ChRISEmbeddedResourceGroupParams<T> = {
-      resourceName,
-      getMethod,
-      chrisContext: chrisContextObj,
-      context,
-    };
-    return new ChRISEmbeddedResourceGroup<T>(params);
+  ): Promise<ChRISEmbeddedResourceGroup<T> | null> {
+    let params: ChRISEmbeddedResourceGroupParams<T>;
+    try {
+      const chrisContextObj: T | null = await this.initializeContext<T>(
+        context
+      );
+      if (!chrisContextObj) {
+        errorStack.push(
+          "warning",
+          `could not initialize context ${context} for ${resourceName}`
+        );
+        return null;
+      }
+      const params: ChRISEmbeddedResourceGroupParams<T> = {
+        resourceName,
+        getMethod,
+        chrisContext: chrisContextObj,
+        context,
+      };
+      return new ChRISEmbeddedResourceGroup<T>(params);
+    } catch (error) {
+      console.log(`error push! ${resourceName}`);
+      errorStack.push(
+        "error",
+        `Error: ${context} seems invalid for resource ${resourceName}.`
+      );
+      return null;
+    }
   }
 
   private static async initializeContext<
     T extends FileBrowserFolder | Plugin | Feed
-  >(context: string): Promise<T> {
+  >(context: string): Promise<T | null> {
     const client: Client | null = chrisConnection.getClient();
     if (!client) {
       throw new ChRISConnectionError("ChRIS client is not initialized");
@@ -125,15 +145,19 @@ export class ChRISEmbeddedResourceGroup<
     } catch (error: unknown) {
       const errorMessage: string =
         error instanceof Error ? error.message : String(error);
-      throw new ChRISInitializationError(
+      errorStack.push(
+        "error",
         `Failed to get contextObject of type ${contextSpec.type} for value ${contextSpec.value}: ${errorMessage}`
       );
+      return null;
     }
 
     if (!chrisContextObj) {
-      throw new ChRISInitializationError(
-        `Failed to initialize contextObject of type ${contextSpec.type} for value ${contextSpec.value}`
+      errorStack.push(
+        "warning",
+        `could not initialize contextObject of type ${contextSpec.type} for value ${contextSpec.value}`
       );
+      return null;
     }
 
     return chrisContextObj;
