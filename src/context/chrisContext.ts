@@ -88,7 +88,7 @@ export class ChrisContext {
     currentURL: null,
   };
 
-  private singleContext: SingleContext = {
+  private _singleContext: SingleContext = {
     URL: null,
     user: null,
     folder: null,
@@ -96,6 +96,10 @@ export class ChrisContext {
     plugin: null,
     token: null,
   };
+
+  get singleContext(): SingleContext {
+    return this._singleContext;
+  }
 
   constructor() {
     this.initialize();
@@ -184,51 +188,53 @@ export class ChrisContext {
     return sessionConfig.getPathContext();
   }
 
-  currentContext_update() {
-    this.singleContext.URL = this.ChRISURL_get();
-    this.singleContext.user = this.ChRISuser_get();
-    this.singleContext.folder = this.ChRISfolder_get();
-    this.singleContext.feed = this.ChRISfeed_get();
-    this.singleContext.plugin = this.ChRISplugin_get();
+  currentContext_update(): SingleContext {
+    this._singleContext.URL = this.ChRISURL_get();
+    this._singleContext.user = this.ChRISuser_get();
+    this._singleContext.folder = this.ChRISfolder_get();
+    this._singleContext.feed = this.ChRISfeed_get();
+    this._singleContext.plugin = this.ChRISplugin_get();
+    return this._singleContext;
   }
 
   getCurrent(context: Context): string | null {
     this.currentContext_update();
     switch (context) {
       case Context.ChRISURL:
-        return this.singleContext.URL;
+        return this._singleContext.URL;
       case Context.ChRISuser:
-        return this.singleContext.user;
+        return this._singleContext.user;
       case Context.ChRISfolder:
-        return this.singleContext.folder;
+        return this._singleContext.folder;
       case Context.ChRISfeed:
-        return this.singleContext.feed;
+        return this._singleContext.feed;
       case Context.ChRISplugin:
-        return this.singleContext.plugin;
+        return this._singleContext.plugin;
     }
   }
 
   setCurrent(context: Context, value: string): boolean {
     let status: boolean = false;
+    this.currentContext_update();
     switch (context) {
       case Context.ChRISuser:
-        this.singleContext.user = value;
+        this._singleContext.user = value;
         status = sessionConfig.connection.saveLastUser(value);
         break;
       case Context.ChRISURL:
-        this.singleContext.URL = value;
+        this._singleContext.URL = value;
         status = sessionConfig.connection.saveChrisURL(value);
         break;
       case Context.ChRISfolder:
-        this.singleContext.folder = value;
+        this._singleContext.folder = value;
         status = this.ChRISfolder_set(value);
         break;
       case Context.ChRISfeed:
-        this.singleContext.feed = value;
+        this._singleContext.feed = value;
         status = this.ChRISfeed_set(value);
         break;
       case Context.ChRISplugin:
-        this.singleContext.plugin = value;
+        this._singleContext.plugin = value;
         status = this.ChRISplugin_set(value);
         break;
     }
