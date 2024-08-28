@@ -1,6 +1,6 @@
 import { ListOptions } from "../resources/chrisResources";
 
-export interface ChRISObjectDesc {
+export interface ChRISObjectParams {
   limit?: number;
   offset?: number;
   page?: string;
@@ -8,7 +8,7 @@ export interface ChRISObjectDesc {
   [key: string]: any;
 }
 
-export interface ChRISElementsGet extends ChRISObjectDesc {
+export interface ChRISElementsGet extends ChRISObjectParams {
   search?: string;
   params?: string;
 }
@@ -17,7 +17,35 @@ export interface QueryHits {
   hits: Array<any>;
 }
 
-export function parseKeyPairString(
+export interface ClIarguments {
+  [key: string]: string | boolean | number;
+}
+
+export function CLItoDictionary(cliString: string): ClIarguments {
+  const result: ClIarguments = {};
+  // Split the string by spaces, but keep quoted sections together
+  const args = cliString.match(/('.*?'|".*?"|\S+)/g) || [];
+  let key = "";
+
+  for (let i = 0; i < args.length; i++) {
+    let arg = args[i].replace(/^['"]|['"]$/g, ""); // Remove surrounding quotes
+
+    if (arg.startsWith("-")) {
+      // This is a key
+      key = arg.replace(/^-+/, "");
+      result[key] = true; // Default to true, will be overwritten if there's a value
+    } else if (key) {
+      // This is a value
+      const numValue = Number(arg);
+      result[key] = isNaN(numValue) ? arg : numValue;
+      key = "";
+    }
+  }
+
+  return result;
+}
+
+export function keyPairString_toJSON(
   searchString: string
 ): Record<string, string> {
   const searchParams: Record<string, string> = {};
@@ -37,7 +65,7 @@ export function applyKeyPairParams<T extends Record<string, any>>(
   searchString?: string
 ): T {
   if (searchString) {
-    const searchParams = parseKeyPairString(searchString);
+    const searchParams = keyPairString_toJSON(searchString);
     return { ...params, ...searchParams };
   }
   return params;
@@ -49,7 +77,7 @@ function optionsReduce(options: ChRISElementsGet): ListOptions {
       const fieldsToReturn = options.returnFilter
         .split(",")
         .map((field) => field.trim());
-      const filteredObj: Partial<ChRISObjectDesc> = {};
+      const filteredObj: Partial<ChRISObjectParams> = {};
       for (const field of fieldsToReturn) {
         if (field in options && field !== "returnFilter") {
           filteredObj[field] = options[field];
