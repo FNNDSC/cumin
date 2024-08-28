@@ -37,10 +37,14 @@ export interface FilteredResourceData {
   selectedFields: string[];
 }
 
+export interface Dictionary {
+  [key: string]: string | number | boolean;
+}
+
 export class ChRISResource {
   private _client: Client | null = null;
   private _resourceName: string = "";
-  private _resourceList: ListResource | null = null;
+  private _resourceCollection: ListResource | Resource | null = null;
   private _resourceArrayItems: Item[] | null = null;
   private _resourceArray: ItemResource[] | null | undefined = null;
   private _resourceItem: ItemResource | null = null;
@@ -63,11 +67,8 @@ export class ChRISResource {
     this._resourceName = name;
   }
 
-  async resourceItem_delete(id: number): Promise<boolean> {
-    const res: ItemResource = this._resourceList?.getItem(id);
-    const delop = await res._delete();
-    // delop seems to be undefined
-    return true;
+  set resourceCollection(collection: ListResource | Resource) {
+    this._resourceCollection = collection;
   }
 
   loggedIn_check(): boolean {
@@ -81,7 +82,28 @@ export class ChRISResource {
     return loggedIn;
   }
 
-  resourceItems_buildFromList(
+  resourceItem_toDict(item: Item): Dictionary {
+    return item.data.reduce((acc: Dictionary, { name, value }) => {
+      acc[name] = value;
+      return acc;
+    }, {});
+  }
+
+  resourceItems_toDicts(items: Item[]): Dictionary[] {
+    return items.map(this.resourceItem_toDict);
+  }
+
+  async resourceItem_delete(id: number): Promise<boolean> {
+    if (!(this._resourceCollection instanceof ListResource)) {
+      return false;
+    }
+    const res: ItemResource = this._resourceCollection?.getItem(id);
+    const delop = await res._delete();
+    // res._delete seems to return "undefined"
+    return true;
+  }
+
+  resourceItems_buildFromCollection(
     resources: ListResource | Resource | null
   ): Item[] | null {
     if (!resources) {
@@ -107,10 +129,9 @@ export class ChRISResource {
   async resources_listAndFilterByOptions(
     options?: Partial<ListOptions>
   ): Promise<FilteredResourceData | null> {
-    const results: FilteredResourceData | null =
-      await this.resources_filterByFields(
-        await this.resourceFields_get(await this.resources_getList(options))
-      );
+    const results: FilteredResourceData | null = this.resources_filterByFields(
+      await this.resourceFields_get(await this.resources_getList(options))
+    );
     return results;
   }
 
@@ -174,7 +195,7 @@ export class ChRISResource {
     options?: ListOptions | null,
     fields?: string
   ): Promise<ResourcesByFields | null> {
-    if (!this._resourceList) {
+    if (!this._resourceCollection) {
       await this.resources_getList();
     }
     if (!this._resourceArrayItems) {
@@ -192,7 +213,7 @@ export class ChRISResource {
       }
     }
     const resourcesByFields: ResourcesByFields = {
-      resources: this._resourceList,
+      resources: this._resourceCollection,
       items: this._resourceArrayItems,
       options: options,
       fields: selectedFields,
@@ -211,7 +232,10 @@ export class ChRISResource {
       return null;
     }
     const resources: ListResource | null = await this.resourceMethod(params);
-    this._resourceArray = this._resourceList?.getItems();
+    if (!(this._resourceCollection instanceof ListResource)) {
+      return null;
+    }
+    this._resourceArray = this._resourceCollection?.getItems();
     if (this._resourceArray) {
       console.log(this._resourceArray);
       return this._resourceArray;
@@ -263,7 +287,7 @@ export class ChRISResource {
   async resources_getList(
     options?: Partial<ListOptions>,
     resourceMethod?: (params: ListOptions) => Promise<any>
-  ): Promise<ListOptions> {
+  ): Promise<ListOptions | null> {
     const params: ListOptions = {
       limit: 20,
       offset: 0,
@@ -289,9 +313,13 @@ export class ChRISResource {
       );
       return params;
     }
-    this._resourceList = resources;
-    this._resourceArray = this._resourceList?.getItems();
-    this._resourceArrayItems = this.resourceItems_buildFromList(resources);
+    this._resourceCollection = resources;
+    if (!(this._resourceCollection instanceof ListResource)) {
+      return null;
+    }
+    this._resourceArray = this._resourceCollection?.getItems();
+    this._resourceArrayItems =
+      this.resourceItems_buildFromCollection(resources);
     if (Object.keys(pureparams).length > Object.keys(simplifiedParams).length) {
       const filteredItems = this.applyAdditionalFiltering(pureparams);
       if (filteredItems === null) {
@@ -309,7 +337,8 @@ export function resourceFields_get(
   fields: string[]
 ): SimpleRecord | null {
   const chrisResource = new ChRISResource();
-  const item: Item[] | null = chrisResource.resourceItems_buildFromList(obj);
+  const item: Item[] | null =
+    chrisResource.resourceItems_buildFromCollection(obj);
   const resourceData: FilteredResourceData | null =
     chrisResource.resources_filterByFields({
       resources: obj,
