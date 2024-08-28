@@ -1,5 +1,6 @@
 import { ChRISEmbeddedResourceGroup } from "./chrisEmbeddedResourceGroup";
 import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
+import { errorStack } from "../error/errorStack";
 
 type ChRISResourceType = FileBrowserFolder | Plugin | Feed;
 
@@ -27,50 +28,54 @@ class ChRISObjContextFactory {
 
   async create(
     context: string
-  ): Promise<ChRISEmbeddedResourceGroup<ChRISResourceType>> {
+  ): Promise<ChRISEmbeddedResourceGroup<ChRISResourceType> | null> {
     const cacheKey: string = `${this.config.name}:${context}`;
 
     if (this.cache.has(cacheKey)) {
-      console.log(`Returning cached object context for ${cacheKey}`);
       return this.cache.get(cacheKey)!;
     }
 
     try {
-      //   console.log(`Creating new object context for ${cacheKey}`);
-
-      const objContext: ChRISEmbeddedResourceGroup<ChRISResourceType> =
+      const objContext: ChRISEmbeddedResourceGroup<ChRISResourceType> | null =
         await ChRISEmbeddedResourceGroup.create<ChRISResourceType>(
           this.config.name,
           this.config.getMethod,
           context
         );
-
+      if (!objContext) {
+        return null;
+      }
       this.cache.set(cacheKey, objContext);
       return objContext;
     } catch (error: unknown) {
       const errorMessage: string =
         error instanceof Error ? error.message : String(error);
-      console.error(`Failed to create ${this.config.name}: ${errorMessage}`);
+      errorStack.push(
+        "error",
+        `Failed to create ${this.config.name}: ${errorMessage}`
+      );
+      console.log(`name = ${this.config.name} context = ${context}`);
       throw new ObjContextCreationError(
         `Failed to create ${this.config.name}: ${errorMessage}`
       );
+      return null;
     }
   }
 }
 
 const ObjContexts: { [key: string]: ObjContextConfig } = {
   PluginComputeResources: {
-    name: "Compute Resources",
+    name: "PluginComputes",
     getMethod: "getPluginComputeResources",
     contextType: "plugin",
   },
   PluginInstances: {
-    name: "Plugin Instances",
+    name: "PluginInstances",
     getMethod: "getPluginInstances",
     contextType: "plugin",
   },
   PluginParameters: {
-    name: "Plugin Parameters",
+    name: "PluginParameters",
     getMethod: "getPluginParameters",
     contextType: "plugin",
   },
@@ -100,13 +105,18 @@ for (const [key, config] of Object.entries(ObjContexts)) {
 export async function createObjContext(
   type: string,
   context: string
-): Promise<ChRISEmbeddedResourceGroup<ChRISResourceType>> {
+): Promise<ChRISEmbeddedResourceGroup<ChRISResourceType> | null> {
   const factory: ChRISObjContextFactory | undefined = objContextFactories[type];
   if (!factory) {
     console.error(`Unknown object context type: ${type}`);
     throw new ObjContextCreationError(`Unknown object context type: ${type}`);
   }
-  return factory.create(context);
+  try {
+    return factory.create(context);
+  } catch (error) {
+    throw error;
+    return null;
+  }
 }
 
 // Usage examples:
