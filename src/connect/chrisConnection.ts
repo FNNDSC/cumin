@@ -75,7 +75,19 @@ export class ChRISConnection {
     }
   }
 
+  contextString_check(context: string): string {
+    if (context.includes("://")) {
+      return context;
+    }
+    if (context.startsWith("?")) {
+      return context;
+    }
+    return "?" + context;
+  }
+
   setContext(context: string): boolean {
+    const currentContext: SingleContext = chrisContext.currentContext_update();
+    context = this.contextString_check(context);
     const parsedContext: SingleContext = parseChRISContextURL(context);
 
     let success: boolean = true;
@@ -97,6 +109,7 @@ export class ChRISConnection {
       success =
         success && chrisContext.setCurrent(Context.ChRISURL, parsedContext.URL);
       this.chrisURL = parsedContext.URL;
+      this.user = currentContext.user;
       needsRefresh = true;
       this.config.setContext(this.user || "", parsedContext.URL);
     }
@@ -127,8 +140,8 @@ export class ChRISConnection {
     return success;
   }
 
-  getAuthToken(): string | null {
-    if (!this.authToken) {
+  getAuthToken(forceLoad?: boolean): string | null {
+    if (!this.authToken || forceLoad) {
       this.loadToken();
     }
     return this.authToken;
@@ -142,8 +155,10 @@ export class ChRISConnection {
   }
 
   refreshClient(): Client | null {
+    const forceTokenLoad: boolean = true;
+    this.tokenFile = this.config.tokenFilepath;
     this.chrisURL = this.getChRISurl();
-    this.authToken = this.getAuthToken();
+    this.authToken = this.getAuthToken(forceTokenLoad);
     if (this.chrisURL && this.authToken) {
       this.client = new Client(this.chrisURL, { token: this.authToken });
     }
