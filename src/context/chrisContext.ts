@@ -3,11 +3,11 @@ import fs from "fs";
 import path from "path";
 
 export enum Context {
-  ChRISURL,
-  ChRISuser,
-  ChRISfolder,
-  ChRISfeed,
-  ChRISplugin,
+  ChRISURL = "ChRIS URL",
+  ChRISuser = "ChRIS user",
+  ChRISfolder = "ChRIS folder",
+  ChRISfeed = "ChRIS feed",
+  ChRISplugin = "ChRIS plugin",
 }
 
 export interface URLContext {
