@@ -94,6 +94,27 @@ export class ChRISPlugin {
     return pluginInstance;
   }
 
+  pluginInstance_toDict(
+    pluginInstance: PluginInstance | undefined | null
+  ): Dictionary | null {
+    if (!pluginInstance) {
+      return null;
+    }
+    const chrisResource: ChRISResource = new ChRISResource();
+    chrisResource.resourceCollection = pluginInstance;
+    const items: Item[] | null =
+      chrisResource.resourceItems_buildFromCollection(pluginInstance);
+    if (!items) {
+      errorStack.push(
+        "error",
+        "Could not convert pluginInstance resource into dictionary"
+      );
+      return null;
+    }
+    const dict: Dictionary = chrisResource.resourceItems_toDicts(items)[0];
+    return dict;
+  }
+
   async plugin_run(plugin: string, params: string): Promise<Dictionary | null> {
     let pluginList: QueryHits | null;
     if ((pluginList = await this.pluginIDs_resolve(plugin)) === null) {
@@ -106,40 +127,22 @@ export class ChRISPlugin {
     }
 
     const pluginParams: ChRISObjectParams = CLItoDictionary(params);
-    console.log(JSON.stringify(pluginParams, null, 4));
 
     try {
-      const combinedParams: ChRISObjectParams & PreviousIDParam = {
-        ...pluginParams,
-        previous_id: previousID,
-      };
-
-      const pluginInstance: PluginInstance | undefined | null =
-        await this._client?.createPluginInstance(pluginID, combinedParams);
-
-      if (!pluginInstance) {
-        errorStack.push("error", "Failed to create plugin instance");
-        return null;
-      }
-      const chrisResource: ChRISResource = new ChRISResource();
-      chrisResource.resourceCollection = pluginInstance;
-      const items: Item[] | null =
-        chrisResource.resourceItems_buildFromCollection(pluginInstance);
-      if (!items) {
-        return null;
-      }
-      const dict: Dictionary = chrisResource.resourceItems_toDicts(items)[0];
+      const dict: Dictionary | null = this.pluginInstance_toDict(
+        await this.plugin_runOnCUBE(pluginID, previousID, pluginParams)
+      );
       return dict;
     } catch (error: unknown) {
       if (error instanceof Error) {
         errorStack.push(
           "error",
-          `Error creating plugin instance | ${error.message}`
+          `Error running plugin instance | ${error.message}`
         );
       } else {
         errorStack.push(
           "error",
-          "An unknown error occurred while creating plugin instance"
+          "An unknown error occurred while running plugin instance"
         );
       }
       return null;
