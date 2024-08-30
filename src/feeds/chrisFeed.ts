@@ -13,6 +13,7 @@ import {
   applyKeyPairParams,
   ChRISObjectParams,
 } from "../utils/keypair.js";
+import { errorStack } from "../error/errorStack.js";
 
 export class ChRISFeedGroup extends ChRISResourceGroup {
   constructor() {
@@ -35,9 +36,9 @@ export class ChRISFeed {
 
   error_parse(error: unknown, activity?: string): null {
     if (error instanceof Error) {
-      console.error(`Error ${activity}: ${error.message}`);
+      errorStack.push("error", `Error ${activity}: ${error.message}`);
     } else {
-      console.error(`An unknown error occurred while ${activity}`);
+      errorStack.push("error", `An unknown error occurred while ${activity}`);
     }
     return null;
   }
@@ -78,7 +79,10 @@ export class ChRISFeed {
         "pl-dircopy"
       );
       if (!pluginList) {
-        console.error("pl-dircopy was not found! No feeds can be created.");
+        errorStack.push(
+          "error",
+          "pl-dircopy was not found! No feeds can be created."
+        );
         return null;
       }
       const pluginID: number = pluginList.hits[0];
