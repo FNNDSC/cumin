@@ -1,10 +1,12 @@
 // config.ts
 
 import fs from "fs";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import path from "path";
+import { dirname } from "path";
 import { join } from "path";
 import os from "os";
+import { errorStack } from "../error/errorStack";
 
 // Read package.json
 const packageJson = JSON.parse(
@@ -18,9 +20,9 @@ export function writeFile(file: string, content: string): boolean {
     fs.writeFileSync(file, content, { mode: 0o600 });
     status = true;
   } catch (error) {
-    console.error(`Error writing to file ${file}:`, error);
+    errorStack.push("error", `Error writing to file ${file}: ${error}`);
   }
-  return true;
+  return status;
 }
 
 export function readFile(file: string): string | null {
@@ -244,15 +246,34 @@ export class ConnectionConfig {
   }
 
   public saveLastUser(user: string): boolean {
-    return writeFile(this.userFilepath, user);
-  }
+    const userDir = dirname(this.userFilepath);
+    const userFolderPath = `${userDir}/${user}`;
 
-  public loadLastUser(): string | null {
-    return readFile(this.userFilepath);
+    if (existsSync(userFolderPath)) {
+      return writeFile(this.userFilepath, user);
+    }
+    errorStack.push(
+      "error",
+      `user '${user}' has not logged in previously -- no context found`
+    );
+    return false;
   }
 
   public saveChrisURL(url: string): boolean {
-    return writeFile(this.chrisURLfilepath, url);
+    const urlDir = dirname(this.chrisURLfilepath);
+    const urlFolderPath = `${urlDir}/${this.uriToDir(url)}`;
+
+    if (existsSync(urlFolderPath)) {
+      return writeFile(this.chrisURLfilepath, url);
+    }
+    errorStack.push(
+      "error",
+      `URL '${url}' has not been accessed previously -- no context found`
+    );
+    return false;
+  }
+  public loadLastUser(): string | null {
+    return readFile(this.userFilepath);
   }
 
   public loadChrisURL(): string | null {
