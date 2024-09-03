@@ -65,7 +65,7 @@ class ChRISObjContextFactory {
 
 const ObjContexts: { [key: string]: ObjContextConfig } = {
   PluginComputeResources: {
-    name: "PluginComputes",
+    name: "ComputesOfPlugin",
     getMethod: "getPluginComputeResources",
     contextType: "plugin",
   },
