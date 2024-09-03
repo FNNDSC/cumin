@@ -212,6 +212,10 @@ export class ChRISResource {
         selectedFields = resourcesFields.fields;
       }
     }
+
+    // Remove duplicates from selectedFields
+    selectedFields = Array.from(new Set(selectedFields));
+
     const resourcesByFields: ResourcesByFields = {
       resources: this._resourceCollection,
       items: this._resourceArrayItems,
@@ -313,6 +317,7 @@ export class ChRISResource {
       );
       return params;
     }
+
     this._resourceCollection = resources;
     if (!(this._resourceCollection instanceof ListResource)) {
       return null;
