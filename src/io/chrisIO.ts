@@ -3,6 +3,7 @@ import { chrisConnection } from "../connect/chrisConnection";
 import Client, { FileBrowserFolder } from "@fnndsc/chrisapi";
 import fs from "fs";
 import path from "path";
+import { errorStack } from "../error/errorStack";
 
 export class ChrisIO {
   private _chrisFolder: string = "";
@@ -33,9 +34,10 @@ export class ChrisIO {
         await this.client.createFileBrowserFolder({ path: this.chrisFolder });
       return true;
     } catch (error: unknown) {
-      console.error(
-        "Failed to create FileBrowserFolder:",
-        error instanceof Error ? error.message : String(error)
+      errorStack.push(
+        "error",
+        `Failed to create FileBrowserFolder: 
+        ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
@@ -57,9 +59,10 @@ export class ChrisIO {
       await this.client.uploadFile(data, uploadFileObj);
       return true;
     } catch (error: unknown) {
-      console.error(
-        ` Failed to upload file ${chrisPath}:`,
-        error instanceof Error ? error.message : String(error)
+      errorStack.push(
+        "error",
+        `Failed to upload file ${chrisPath}:
+        ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
