@@ -1,6 +1,6 @@
 import { sessionConfig, readFile, ConnectionConfig } from "../config/config";
 import { chrisConnection } from "../connect/chrisConnection";
-import Client, { FileBrowserFolder } from "@fnndsc/chrisapi";
+import Client, { FileBrowserFolder, UserFile } from "@fnndsc/chrisapi";
 import fs from "fs";
 import path from "path";
 import { errorStack } from "../error/errorStack";
@@ -40,6 +40,31 @@ export class ChrisIO {
         ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
+    }
+  }
+
+  async file_download(fileId: number): Promise<Buffer | null> {
+    if (!this.client) {
+      console.error("ChRIS client is not initialized");
+      return null;
+    }
+
+    try {
+      const response: UserFile | null = await this.client.getUserFile(fileId);
+
+      if (!response || !response.data) {
+        throw new Error(`Failed to get file with ID ${fileId}`);
+      }
+
+      const arrayBuffer: ArrayBuffer = await response.data.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (error: unknown) {
+      errorStack.push(
+        "error",
+        `Failed to download file with ID ${fileId}: 
+        ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
     }
   }
 
