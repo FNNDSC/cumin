@@ -64,18 +64,18 @@ class ChRISObjContextFactory {
 }
 
 const ObjContexts: { [key: string]: ObjContextConfig } = {
-  PluginComputeResources: {
+  ComputesOfPlugin: {
     name: "ComputesOfPlugin",
     getMethod: "getPluginComputeResources",
     contextType: "plugin",
   },
-  PluginInstances: {
-    name: "PluginInstances",
+  InstancesOfPlugin: {
+    name: "InstancesOfPlugin",
     getMethod: "getPluginInstances",
     contextType: "plugin",
   },
-  PluginParameters: {
-    name: "PluginParameters",
+  ParametersOfPlugin: {
+    name: "ParametersOfPlugin",
     getMethod: "getPluginParameters",
     contextType: "plugin",
   },
