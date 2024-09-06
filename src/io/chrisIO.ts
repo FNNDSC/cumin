@@ -43,6 +43,13 @@ export class ChrisIO {
     }
   }
 
+  private isArrayBuffer(obj: any): obj is ArrayBuffer {
+    return (
+      obj instanceof ArrayBuffer ||
+      (typeof obj === "object" && obj.byteLength !== undefined)
+    );
+  }
+
   async file_download(fileId: number): Promise<Buffer | null> {
     if (!this.client) {
       console.error("ChRIS client is not initialized");
@@ -50,14 +57,24 @@ export class ChrisIO {
     }
 
     try {
-      const response: UserFile | null = await this.client.getUserFile(fileId);
+      const userFile: UserFile | null = await this.client.getUserFile(fileId);
 
-      if (!response || !response.data) {
+      if (!userFile) {
         throw new Error(`Failed to get file with ID ${fileId}`);
       }
 
-      const arrayBuffer: ArrayBuffer = await response.data.arrayBuffer();
-      return Buffer.from(arrayBuffer);
+      const blob: unknown = await userFile.getFileBlob();
+
+      if (typeof blob === "string") {
+        return Buffer.from(blob);
+      } else if (blob instanceof ArrayBuffer) {
+        return Buffer.from(blob);
+      } else if (blob instanceof Blob) {
+        const arrayBuffer = await blob.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      } else {
+        throw new Error(`Unexpected blob type: ${typeof blob}`);
+      }
     } catch (error: unknown) {
       errorStack.push(
         "error",
