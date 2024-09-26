@@ -1,6 +1,8 @@
 import { sessionConfig, readFile, ConnectionConfig } from "../config/config";
 import fs from "fs";
 import path from "path";
+import { QueryHits } from "../utils/keypair";
+import { ChRISPlugin } from "../plugins/chrisPlugins";
 
 export enum Context {
   ChRISURL = "URL",
@@ -29,7 +31,9 @@ export interface UserContext {
   currentURL: string | null;
 }
 
-export function parseChRISContextURL(url: string): SingleContext {
+export async function parseChRISContextURL(
+  url: string
+): Promise<SingleContext> {
   const result: SingleContext = {
     URL: null,
     user: null,
@@ -63,7 +67,11 @@ export function parseChRISContextURL(url: string): SingleContext {
     // Handle 'plugin' matches with an "includes" vs "equals"
     for (const [key, value] of queryParams.entries()) {
       if (key.includes("plugin")) {
-        result.plugin = value;
+        if (value.includes(":")) {
+          result.plugin = await id_fromSearchable(value);
+        } else {
+          result.plugin = value;
+        }
         break; // Stop after finding the first match
       }
     }
@@ -71,6 +79,19 @@ export function parseChRISContextURL(url: string): SingleContext {
     // Note: token is not present in the URL, so it remains null
   }
   return result;
+}
+
+async function id_fromSearchable(searchable: string): Promise<string | null> {
+  const plugin: ChRISPlugin = new ChRISPlugin();
+  const ids: QueryHits | null = await plugin.pluginIDs_getFromSearchable(
+    searchable
+  );
+  if (ids) {
+    const id: number = ids.hits[0];
+    const ID: string = id.toString();
+    return ID;
+  }
+  return null;
 }
 
 export interface FullContext {
