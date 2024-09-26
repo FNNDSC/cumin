@@ -85,10 +85,10 @@ export class ChRISConnection {
     return "?" + context;
   }
 
-  setContext(context: string): boolean {
+  async setContext(context: string): Promise<boolean> {
     const currentContext: SingleContext = chrisContext.currentContext_update();
     context = this.contextString_check(context);
-    const parsedContext: SingleContext = parseChRISContextURL(context);
+    const parsedContext: SingleContext = await parseChRISContextURL(context);
 
     let success: boolean = true;
     let needsRefresh: boolean = false;
