@@ -1,18 +1,32 @@
-// chrisConnection.ts
+/**
+ * @file ChRIS Connection Management
+ *
+ * This module provides the `ChRISConnection` class, responsible for managing
+ * the connection to a ChRIS CUBE, including authentication, token handling,
+ * and context setting. It abstracts away the underlying storage mechanisms
+ * for configuration and tokens using `IStorageProvider`.
+ *
+ * @module
+ */
 
-import fs from "fs";
-import path from "path";
 import Client from "@fnndsc/chrisapi";
-import { ConnectionConfig } from "../config/config";
+import { ConnectionConfig, initializeConfig, connectionConfig } from "../config/config.js";
 import {
   parseChRISContextURL,
   SingleContext,
   Context,
   chrisContext,
-} from "../context/chrisContext";
+} from "../context/chrisContext.js";
+import { IStorageProvider } from "../io/io.js";
 
+/**
+ * Re-exports the ChRIS API client for convenience.
+ */
 export { Client };
 
+/**
+ * Interface defining options for establishing a ChRIS connection.
+ */
 interface ConnectOptions {
   user: string;
   password: string;
@@ -20,6 +34,24 @@ interface ConnectOptions {
   url: string;
 }
 
+/**
+ * Helper function to validate and format a context string.
+ * @param context - The context string to check.
+ * @returns The formatted context string.
+ */
+function contextString_check(context: string): string {
+  if (context.includes("://")) {
+    return context;
+  }
+  if (context.startsWith("?")) {
+    return context;
+  }
+  return "?" + context;
+}
+
+/**
+ * Manages the connection and authentication with a ChRIS CUBE.
+ */
 export class ChRISConnection {
   private authToken: string | null = null;
   private tokenFile: string;
@@ -27,25 +59,37 @@ export class ChRISConnection {
   private chrisURL: string | null = null;
   private client: Client | null = null;
   private config: ConnectionConfig;
+  private storageProvider: IStorageProvider;
 
-  constructor(config: ConnectionConfig) {
+  /**
+   * Constructs a new ChRISConnection instance.
+   * @param config - The connection configuration object.
+   * @param storageProvider - The storage provider for persistence.
+   */
+  constructor(config: ConnectionConfig, storageProvider: IStorageProvider) {
     this.config = config;
+    this.storageProvider = storageProvider;
     this.tokenFile = this.config.tokenFilepath;
   }
 
-  async connect(options: ConnectOptions): Promise<string | null> {
+  /**
+   * Establishes a connection to the ChRIS CUBE and authenticates the user.
+   * @param options - Connection options including user, password, debug flag, and URL.
+   * @returns A Promise resolving to the authentication token on success, or null on failure.
+   */
+  async connection_connect(options: ConnectOptions): Promise<string | null> {
     const { user, password, debug, url }: ConnectOptions = options;
     const authUrl: string = url + "auth-token/";
     this.user = user;
     this.chrisURL = url;
     console.log(`Connecting to ${url} with user ${user}`);
-    this.config.setContext(user, url);
+    await this.config.setContext(user, url);
     this.tokenFile = this.config.tokenFilepath;
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
         console.log("Auth token: " + this.authToken);
-        this.saveToFile(this.tokenFile, this.authToken);
+        await this.token_saveToFile(this.tokenFile, this.authToken);
         console.log("Auth token saved successfully");
         console.log("ChRIS URL saved successfully");
         return this.authToken;
@@ -75,100 +119,112 @@ export class ChRISConnection {
     }
   }
 
-  contextString_check(context: string): string {
-    if (context.includes("://")) {
-      return context;
-    }
-    if (context.startsWith("?")) {
-      return context;
-    }
-    return "?" + context;
-  }
-
-  async setContext(context: string): Promise<boolean> {
-    const currentContext: SingleContext = chrisContext.currentContext_update();
-    context = this.contextString_check(context);
+  /**
+   * Sets the ChRIS context based on a context string (e.g., user@url?folder=...). 
+   * @param context - The context string.
+   * @returns A Promise resolving to true on success, false otherwise.
+   */
+  async context_set(context: string): Promise<boolean> {
+    const currentContext: SingleContext = await chrisContext.currentContext_update(); // Await this call
+    context = contextString_check(context);
     const parsedContext: SingleContext = await parseChRISContextURL(context);
 
-    let success: boolean = true;
+    let status: boolean = true;
     let needsRefresh: boolean = false;
 
     if (parsedContext.user) {
-      success =
-        success &&
-        chrisContext.setCurrent(Context.ChRISuser, parsedContext.user);
+      status =
+        status &&
+        (await chrisContext.setCurrent(Context.ChRISuser, parsedContext.user)); // Await this call
       this.user = parsedContext.user;
       needsRefresh = true;
-      this.config.setContext(
+      await this.config.setContext(
         parsedContext.user,
         parsedContext.URL || undefined
       );
     }
 
     if (parsedContext.URL) {
-      success =
-        success && chrisContext.setCurrent(Context.ChRISURL, parsedContext.URL);
+      status =
+        status && (await chrisContext.setCurrent(Context.ChRISURL, parsedContext.URL)); // Await this call
       this.chrisURL = parsedContext.URL;
       this.user = currentContext.user;
       needsRefresh = true;
-      this.config.setContext(this.user || "", parsedContext.URL);
+      await this.config.setContext(this.user || "", parsedContext.URL);
     }
 
     if (parsedContext.folder) {
-      success =
-        success &&
-        chrisContext.setCurrent(Context.ChRISfolder, parsedContext.folder);
+      status =
+        status &&
+        (await chrisContext.setCurrent(Context.ChRISfolder, parsedContext.folder)); // Await this call
     }
 
     if (parsedContext.feed) {
-      success =
-        success &&
-        chrisContext.setCurrent(Context.ChRISfeed, parsedContext.feed);
+      status =
+        status &&
+        (await chrisContext.setCurrent(Context.ChRISfeed, parsedContext.feed)); // Await this call
     }
 
     if (parsedContext.plugin) {
-      success =
-        success &&
-        chrisContext.setCurrent(Context.ChRISplugin, parsedContext.plugin);
+      status =
+        status &&
+        (await chrisContext.setCurrent(Context.ChRISplugin, parsedContext.plugin)); // Await this call
     }
 
     // Refresh the client with the new context
     if (needsRefresh) {
-      this.refreshClient();
+      await this.client_refresh();
     }
 
-    return success;
+    return status;
   }
 
-  getAuthToken(forceLoad?: boolean): string | null {
+  /**
+   * Retrieves the authentication token.
+   * @param forceLoad - If true, forces loading the token from storage.
+   * @returns A Promise resolving to the authentication token or null.
+   */
+  async authToken_get(forceLoad?: boolean): Promise<string | null> {
     if (!this.authToken || forceLoad) {
-      this.loadToken();
+      await this.token_load();
     }
     return this.authToken;
   }
 
-  getChRISurl(): string | null {
+  /**
+   * Retrieves the ChRIS CUBE URL.
+   * @returns A Promise resolving to the ChRIS URL or null.
+   */
+  async chrisURL_get(): Promise<string | null> {
     if (!this.chrisURL) {
-      this.chrisURL = this.config.loadChrisURL();
+      this.chrisURL = await this.config.loadChrisURL();
     }
     return this.chrisURL;
   }
 
-  refreshClient(): Client | null {
+  /**
+   * Refreshes the ChRIS API client with current token and URL.
+   * @returns A Promise resolving to the refreshed Client instance or null.
+   */
+  async client_refresh(): Promise<Client | null> {
     const forceTokenLoad: boolean = true;
     this.tokenFile = this.config.tokenFilepath;
-    this.chrisURL = this.getChRISurl();
-    this.authToken = this.getAuthToken(forceTokenLoad);
+    this.chrisURL = await this.chrisURL_get();
+    this.authToken = await this.authToken_get(forceTokenLoad);
     if (this.chrisURL && this.authToken) {
       this.client = new Client(this.chrisURL, { token: this.authToken });
     }
     return this.client;
   }
 
-  getClient(): Client | null {
+  /**
+   * Retrieves the ChRIS API client instance.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
     if (
-      this.getAuthToken() &&
-      this.getChRISurl() &&
+      (await this.authToken_get()) &&
+      (await this.chrisURL_get()) &&
       this.chrisURL &&
       this.authToken
     ) {
@@ -179,52 +235,64 @@ export class ChRISConnection {
     return this.client;
   }
 
-  isConnected(): boolean {
-    return this.getAuthToken() !== null;
+  /**
+   * Checks if the client is currently connected.
+   * @returns True if connected, false otherwise.
+   */
+  connection_isConnected(): boolean {
+    return this.authToken !== null;
   }
 
-  loggedIn_check(): boolean {
-    let loggedIn: boolean = true;
-    if (!this.client) {
-      console.log(
-        "(connect) Not connected to ChRIS. Please connect first using the connect command."
-      );
-      loggedIn = false;
-    }
-    return loggedIn;
-  }
-
-  logout(): void {
+  /**
+   * Logs out the user by clearing the authentication token from storage.
+   */
+  async connection_logout(): Promise<void> {
     this.authToken = null;
     try {
-      fs.unlinkSync(this.tokenFile);
+      await this.storageProvider.remove(this.tokenFile);
       console.log("Logged out successfully");
     } catch (error) {
       console.error("Error during logout:", error);
     }
   }
 
-  private saveToFile(file: string, info: string): void {
+  /**
+   * Saves data to a specified file using the storage provider.
+   * @param file - The path to the file.
+   * @param info - The string data to save.
+   */
+  private async token_saveToFile(file: string, info: string): Promise<void> {
     try {
-      fs.writeFileSync(file, info || "", { mode: 0o600 });
+      await this.storageProvider.write(file, info || "");
     } catch (error) {
       console.error("For info: ", info);
       console.error("Error saving to file ", file, ": ", error);
     }
   }
 
-  private loadUser(): void {
-    this.user = this.config.loadLastUser();
-  }
-
-  private loadToken(): void {
+  /**
+   * Loads the authentication token from storage.
+   * @returns A Promise that resolves when the token is loaded.
+   */
+  private async token_load(): Promise<void> {
     try {
-      this.authToken = fs.readFileSync(this.tokenFile, "utf-8");
+      this.authToken = await this.storageProvider.read(this.tokenFile);
     } catch (error) {
       this.authToken = null;
     }
   }
 }
 
-const config = ConnectionConfig.getInstance();
-export const chrisConnection = new ChRISConnection(config);
+/**
+ * Global instance of ChRISConnection, initialized asynchronously.
+ */
+export let chrisConnection: ChRISConnection;
+
+/**
+ * Initializes the global ChRISConnection instance.
+ * @param storageProvider - The storage provider to use for the connection.
+ */
+export async function initializeChrisConnection(storageProvider: IStorageProvider): Promise<void> {
+  await initializeConfig(storageProvider); // This sets the global connectionConfig
+  chrisConnection = new ChRISConnection(connectionConfig, storageProvider);
+}

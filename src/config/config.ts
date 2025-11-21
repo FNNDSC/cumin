@@ -1,123 +1,11 @@
 // config.ts
 
-import fs from "fs";
-import { readFileSync, existsSync } from "fs";
-import path from "path";
-import { dirname } from "path";
-import { join } from "path";
-import os from "os";
-import { errorStack } from "../error/errorStack";
+import { IStorageProvider } from "../io/io.js";
+import { errorStack } from "../error/errorStack.js";
+import * as path from "path";
+import * as os from "os";
 
-// Read package.json
-const packageJson = JSON.parse(
-  readFileSync(join(__dirname, "../..", "package.json"), "utf-8")
-);
-const name = packageJson.name;
-
-export function writeFile(file: string, content: string): boolean {
-  let status: boolean = false;
-  try {
-    fs.writeFileSync(file, content, { mode: 0o600 });
-    status = true;
-  } catch (error) {
-    errorStack.push("error", `Error writing to file ${file}: ${error}`);
-  }
-  return status;
-}
-
-export function readFile(file: string): string | null {
-  try {
-    return fs.readFileSync(file, "utf-8");
-  } catch (error) {
-    return null;
-  }
-}
-
-export interface SessionConfigOptions {
-  cwdFile?: string;
-  cwdFilename?: string;
-  feedFile?: string;
-  feedFilename?: string;
-  pluginFile?: string;
-  pluginFilename?: string;
-}
-
-export class SessionConfig {
-  private static instance: SessionConfig;
-
-  public cwdFile: string;
-  public cwdFilename: string;
-  public feedFile: string;
-  public feedFilename: string;
-  public pluginFile: string;
-  public pluginFilename: string;
-  private connectionConfig: ConnectionConfig;
-
-  private constructor(
-    options: SessionConfigOptions = {},
-    connectionConfig: ConnectionConfig
-  ) {
-    this.cwdFile = options.cwdFile || "cwd.txt";
-    this.cwdFilename = options.cwdFilename || "";
-    this.feedFile = options.feedFile || "feed.txt";
-    this.feedFilename = options.feedFilename || "";
-    this.pluginFile = options.pluginFile || "plugin.txt";
-    this.pluginFilename = options.pluginFilename || "";
-    this.connectionConfig = connectionConfig;
-
-    this.initialize();
-  }
-
-  get connection(): ConnectionConfig {
-    return connectionConfig;
-  }
-
-  public static getInstance(options?: SessionConfigOptions): SessionConfig {
-    if (!SessionConfig.instance) {
-      SessionConfig.instance = new SessionConfig(options, connectionConfig);
-    }
-    return SessionConfig.instance;
-  }
-
-  public initialize(): void {
-    this.cwdFilename = path.join(
-      this.connectionConfig.userChRISContextDir,
-      this.cwdFile
-    );
-    this.feedFilename = path.join(
-      this.connectionConfig.userChRISContextDir,
-      this.feedFile
-    );
-    this.pluginFilename = path.join(
-      this.connectionConfig.userChRISContextDir,
-      this.pluginFile
-    );
-  }
-
-  public setPathContext(path: string): boolean {
-    return writeFile(this.cwdFilename, path);
-  }
-
-  public getPathContext(): string | null {
-    return readFile(this.cwdFilename);
-  }
-
-  public setFeedContext(feedID: string): boolean {
-    return writeFile(this.feedFilename, feedID);
-  }
-
-  public getFeedContext(): string | null {
-    return readFile(this.feedFilename);
-  }
-
-  public setPluginContext(pluginID: string): boolean {
-    return writeFile(this.pluginFilename, pluginID);
-  }
-
-  public getPluginContext(): string | null {
-    return readFile(this.pluginFilename);
-  }
-}
+const name = "@fnndsc/cumin";
 
 export interface ConnectionConfigOptions {
   configDir?: string;
@@ -132,8 +20,23 @@ export interface ConnectionConfigOptions {
   tokenFilepath?: string;
 }
 
+export interface SessionConfigOptions {
+  cwdFile?: string;
+  cwdFilename?: string;
+  feedFile?: string;
+  feedFilename?: string;
+  pluginFile?: string;
+  pluginFilename?: string;
+  storageProvider?: IStorageProvider; // Add storageProvider to options
+}
+
 export class ConnectionConfig {
   private static instance: ConnectionConfig;
+  private storageProvider: IStorageProvider;
+
+  public get storage(): IStorageProvider {
+    return this.storageProvider;
+  }
 
   public readonly configDir: string;
   public userContextDir: string;
@@ -146,7 +49,11 @@ export class ConnectionConfig {
   public tokenFilepath: string;
   public readonly currentDirectory: string;
 
-  private constructor(options: ConnectionConfigOptions = {}) {
+  private constructor(
+    options: ConnectionConfigOptions = {},
+    storageProvider: IStorageProvider
+  ) {
+    this.storageProvider = storageProvider;
     const configBase =
       process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
     this.configDir = path.join(configBase, name);
@@ -160,28 +67,28 @@ export class ConnectionConfig {
     this.tokenFile = name.replace("/", "_") + "_token.txt";
     this.tokenFilepath = options.tokenFilepath || "";
     this.currentDirectory = options.currentDirectory || process.cwd();
-
-    this.initialize();
   }
 
-  public static getInstance(
+  public static async getInstance(
+    storageProvider: IStorageProvider,
     options?: ConnectionConfigOptions
-  ): ConnectionConfig {
+  ): Promise<ConnectionConfig> {
     if (!ConnectionConfig.instance) {
-      ConnectionConfig.instance = new ConnectionConfig(options);
+      ConnectionConfig.instance = new ConnectionConfig(options, storageProvider);
+      await ConnectionConfig.instance.initialize();
     }
     return ConnectionConfig.instance;
   }
 
-  public initialize(): void {
-    this.ensureDirExists(this.configDir);
-    const lastUser: string | null = this.loadLastUser();
+  public async initialize(): Promise<void> {
+    await this.ensureDirExists(this.configDir);
+    const lastUser: string | null = await this.loadLastUser();
     if (!lastUser) {
       return;
     }
     this.userContextDir = path.join(this.configDir, lastUser);
     this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
-    const lastURL: string | null = this.loadChrisURL();
+    const lastURL: string | null = await this.loadChrisURL();
     if (!lastURL) {
       return;
     }
@@ -192,9 +99,9 @@ export class ConnectionConfig {
     this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
-  private ensureDirExists(dir: string): void {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  private async ensureDirExists(dir: string): Promise<void> {
+    if (!(await this.storageProvider.exists(dir))) {
+      await this.storageProvider.mkdir(dir, { recursive: true });
     }
   }
 
@@ -228,29 +135,30 @@ export class ConnectionConfig {
     return `${protocol}://${domainPart}/${path}`;
   }
 
-  public setContext(user: string, url?: string): void {
-    this.saveLastUser(user);
+  public async setContext(user: string, url?: string): Promise<void> {
+    await this.saveLastUser(user);
     this.userContextDir = path.join(this.configDir, user);
-    this.ensureDirExists(this.userContextDir);
+    await this.ensureDirExists(this.userContextDir);
     this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
     if (!url) {
       return;
     }
-    this.saveChrisURL(url);
+    await this.saveChrisURL(url);
     this.userChRISContextDir = path.join(
       this.userContextDir,
       this.uriToDir(url)
     );
-    this.ensureDirExists(this.userChRISContextDir);
+    await this.ensureDirExists(this.userChRISContextDir);
     this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
-  public saveLastUser(user: string): boolean {
-    const userDir = dirname(this.userFilepath);
-    const userFolderPath = `${userDir}/${user}`;
+  public async saveLastUser(user: string): Promise<boolean> {
+    const userDir = path.dirname(this.userFilepath);
+    const userFolderPath = path.join(userDir, user);
 
-    if (existsSync(userFolderPath)) {
-      return writeFile(this.userFilepath, user);
+    if (await this.storageProvider.exists(userFolderPath)) {
+      await this.storageProvider.write(this.userFilepath, user);
+      return true;
     }
     errorStack.push(
       "error",
@@ -259,12 +167,13 @@ export class ConnectionConfig {
     return false;
   }
 
-  public saveChrisURL(url: string): boolean {
-    const urlDir = dirname(this.chrisURLfilepath);
-    const urlFolderPath = `${urlDir}/${this.uriToDir(url)}`;
+  public async saveChrisURL(url: string): Promise<boolean> {
+    const urlDir = path.dirname(this.chrisURLfilepath);
+    const urlFolderPath = path.join(urlDir, this.uriToDir(url));
 
-    if (existsSync(urlFolderPath)) {
-      return writeFile(this.chrisURLfilepath, url);
+    if (await this.storageProvider.exists(urlFolderPath)) {
+      await this.storageProvider.write(this.chrisURLfilepath, url);
+      return true;
     }
     errorStack.push(
       "error",
@@ -272,15 +181,113 @@ export class ConnectionConfig {
     );
     return false;
   }
-  public loadLastUser(): string | null {
-    return readFile(this.userFilepath);
+
+  public async loadLastUser(): Promise<string | null> {
+    return this.storageProvider.read(this.userFilepath);
   }
 
-  public loadChrisURL(): string | null {
-    const url: string | null = readFile(this.chrisURLfilepath);
+  public async loadChrisURL(): Promise<string | null> {
+    const url: string | null = await this.storageProvider.read(
+      this.chrisURLfilepath
+    );
     return url;
   }
 }
 
-export const connectionConfig = ConnectionConfig.getInstance();
-export const sessionConfig = SessionConfig.getInstance();
+export class SessionConfig {
+  private static instance: SessionConfig;
+
+  public cwdFile: string;
+  public cwdFilename: string;
+  public feedFile: string;
+  public feedFilename: string;
+  public pluginFile: string;
+  public pluginFilename: string;
+  private connectionConfig: ConnectionConfig;
+  private storageProvider: IStorageProvider;
+
+  private constructor(
+    options: SessionConfigOptions = {},
+    connectionConfig: ConnectionConfig,
+    storageProvider: IStorageProvider
+  ) {
+    this.cwdFile = options.cwdFile || "cwd.txt";
+    this.cwdFilename = options.cwdFilename || "";
+    this.feedFile = options.feedFile || "feed.txt";
+    this.feedFilename = options.feedFilename || "";
+    this.pluginFile = options.pluginFile || "plugin.txt";
+    this.pluginFilename = options.pluginFilename || "";
+    this.connectionConfig = connectionConfig;
+    this.storageProvider = storageProvider;
+  }
+
+  get connection(): ConnectionConfig {
+    return this.connectionConfig;
+  }
+
+  public static async getInstance(
+    storageProvider: IStorageProvider,
+    options?: SessionConfigOptions
+  ): Promise<SessionConfig> {
+    if (!SessionConfig.instance) {
+      const connectionConfig = await ConnectionConfig.getInstance(storageProvider);
+      SessionConfig.instance = new SessionConfig(
+        options,
+        connectionConfig,
+        storageProvider
+      );
+      await SessionConfig.instance.initialize();
+    }
+    return SessionConfig.instance;
+  }
+
+  public async initialize(): Promise<void> {
+    this.cwdFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.cwdFile
+    );
+    this.feedFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.feedFile
+    );
+    this.pluginFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.pluginFile
+    );
+  }
+
+  public async setPathContext(path: string): Promise<boolean> {
+    await this.storageProvider.write(this.cwdFilename, path);
+    return true;
+  }
+
+  public async getPathContext(): Promise<string | null> {
+    return this.storageProvider.read(this.cwdFilename);
+  }
+
+  public async setFeedContext(feedID: string): Promise<boolean> {
+    await this.storageProvider.write(this.feedFilename, feedID);
+    return true;
+  }
+
+  public async getFeedContext(): Promise<string | null> {
+    return this.storageProvider.read(this.feedFilename);
+  }
+
+  public async setPluginContext(pluginID: string): Promise<boolean> {
+    await this.storageProvider.write(this.pluginFilename, pluginID);
+    return true;
+  }
+
+  public async getPluginContext(): Promise<string | null> {
+    return this.storageProvider.read(this.pluginFilename);
+  }
+}
+
+export let connectionConfig: ConnectionConfig;
+export let sessionConfig: SessionConfig;
+
+export async function initializeConfig(storageProvider: IStorageProvider) {
+  connectionConfig = await ConnectionConfig.getInstance(storageProvider);
+  sessionConfig = await SessionConfig.getInstance(storageProvider);
+}

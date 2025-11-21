@@ -1,39 +1,52 @@
+/**
+ * @file ChRIS Resource Group
+ *
+ * This module defines the base class for grouping ChRIS resources.
+ * It handles the initialization and binding of resource fetching methods,
+ * supporting both immediate and lazy binding strategies.
+ *
+ * @module
+ */
+
 import Client from "@fnndsc/chrisapi";
-import { chrisConnection } from "../connect/chrisConnection";
-import { ChRISResource } from "../resources/chrisResources";
+import { chrisConnection } from "../connect/chrisConnection.js";
+import { ChRISResource } from "../resources/chrisResources.js";
 
+/**
+ * Abstract base class for a group of ChRIS resources.
+ */
 export abstract class ChRISResourceGroup {
-  protected _client: Client | null;
   protected _asset: ChRISResource;
-  protected _chrisObj: any;
 
+  /**
+   * Constructor for ChRISResourceGroup.
+   * @param resourceName - The name of the resource.
+   * @param getMethod - The method name on the client/object to fetch resources.
+   * @param chrisObj - Optional object to bind the method to. If not provided, uses the global ChRIS client lazily.
+   */
   constructor(resourceName: string, getMethod: string, chrisObj?: any) {
-    this._client = chrisConnection.getClient();
-    if (!this._client) {
-      console.error(
-        "Could not access ChRIS. Have you connected with the 'connect' command?"
-      );
-      process.exit(1);
-    }
-    if (!chrisObj) {
-      this._chrisObj = this._client;
-    } else {
-      this._chrisObj = chrisObj;
-    }
     this._asset = new ChRISResource();
-    // process.stdout.write(`about to bind ${getMethod} to ${resourceName}... `);
-    if (this._chrisObj) {
-      this._asset.resource_bindGetMethodToObj(
-        this._chrisObj,
-        (this._chrisObj as any)[getMethod]
-      );
-      // console.log("[ OK ]");
-    }
     this._asset.resourceName = resourceName;
+
+    if (chrisObj) {
+      this._asset.resource_bindGetMethodToObj(
+        chrisObj,
+        (chrisObj as any)[getMethod]
+      );
+    } else {
+      this._asset.resource_bindMethodLazy(
+        () => chrisConnection.client_get(),
+        getMethod
+      );
+    }
   }
 
-  public get client(): Client | null {
-    return this._client;
+  /**
+   * Retrieves the ChRIS client instance asynchronously.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
+    return chrisConnection.client_get();
   }
 
   get asset(): ChRISResource {

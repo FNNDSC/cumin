@@ -5,8 +5,9 @@ import { readFileSync } from "fs";
 import { join } from "path";
 // import { chrisFileBrowser_create } from "./filebrowser/chrisFileBrowser";
 import { ChRISinode } from "./filebrowser/chrisFiles";
-import { chrisConnection } from "./connect/chrisConnection";
+import { chrisConnection, initializeChrisConnection } from "./connect/chrisConnection";
 import { connectionConfig } from "./config/config";
+import { NodeStorageProvider } from "./io/node_io.js";
 
 // import { createChrisFilesGetFiles } from "./filebrowser/chrisFiles";
 import { ChRISinode_create } from "./filebrowser/chrisFiles";
@@ -20,6 +21,9 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 
 async function main() {
+  const nodeStorageProvider = new NodeStorageProvider();
+  await initializeChrisConnection(nodeStorageProvider);
+
   console.log(figlet.textSync("cumin"));
   console.log(" -- CUbe Management INterface --");
   console.log("      == version ", version, "==");
@@ -38,8 +42,8 @@ async function main() {
   console.log(
     "For this set of configuration values read during initialization,"
   );
-  console.log("the authorization token is: ", chrisConnection.getAuthToken());
-  console.log("the chris URL is ", chrisConnection.getChRISurl());
+  console.log("the authorization token is: ", await chrisConnection.authToken_get());
+  console.log("the chris URL is ", await chrisConnection.chrisURL_get());
   console.log(connectionConfig);
 }
 

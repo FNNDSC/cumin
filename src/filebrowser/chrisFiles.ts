@@ -1,7 +1,16 @@
-import { ChRISFileBrowser, BrowserType, BoolString } from "./chrisFileBrowser";
+/**
+ * @file ChRIS Inode Management
+ *
+ * This module provides the ChRISinode class for managing inodes (files, directories, links)
+ * within the ChRIS filesystem. It acts as a facade for different browser types.
+ *
+ * @module
+ */
+
+import { ChRISFileBrowser, BrowserType, BoolString } from "./chrisFileBrowser.js";
 import { FileBrowserFolder } from "@fnndsc/chrisapi";
 import Client from "@fnndsc/chrisapi";
-import { chrisConnection } from "../connect/chrisConnection";
+import { chrisConnection } from "../connect/chrisConnection.js";
 
 class ChRISConnectionError extends Error {
   constructor(message: string) {
@@ -19,6 +28,9 @@ class ChRISInitializationError extends Error {
 
 type ChRISBrowser = ChRISFileBrowser | null;
 
+/**
+ * Class representing an inode in the ChRIS filesystem.
+ */
 export class ChRISinode {
   private _client: Client | null = null;
   private _fileBrowserFolderObj: FileBrowserFolder | null = null;
@@ -27,12 +39,13 @@ export class ChRISinode {
 
   private constructor(path: string = "") {
     this._path = path;
-    this._client = chrisConnection.getClient();
-    if (!this._client) {
-      throw new ChRISConnectionError("Could not access ChRIS. Have you connected with the 'connect' command?");
-    }
   }
 
+  /**
+   * Factory method to create a new ChRISinode instance.
+   * @param path - The path to the inode.
+   * @returns A Promise resolving to a new ChRISinode instance.
+   */
   public static async create(path: string = ""): Promise<ChRISinode> {
     const instance = new ChRISinode(path);
     await instance.initializeAndBind();
@@ -63,13 +76,10 @@ export class ChRISinode {
     return this._browsers.get(type) ?? null;
   }
 
-  public get client(): Client | null {
-    return this._client;
-  }
-
   private async initializeAndBind(): Promise<void> {
+    this._client = await chrisConnection.client_get();
     if (!this._client) {
-      throw new ChRISConnectionError("ChRIS client is not initialized");
+      throw new ChRISConnectionError("Could not access ChRIS. Have you connected with the 'connect' command?");
     }
 
     try {
@@ -94,8 +104,9 @@ export class ChRISinode {
   }
 }
 
-// This function is now replaced by the static factory method ChRISinode.create
-// Keeping it here for backwards compatibility, but it can be removed if not needed
+/**
+ * @deprecated Use ChRISinode.create instead.
+ */
 export async function ChRISinode_create(path?: string): Promise<ChRISinode | null> {
   try {
     return await ChRISinode.create(path);

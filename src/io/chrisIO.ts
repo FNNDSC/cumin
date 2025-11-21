@@ -1,16 +1,36 @@
-import { sessionConfig, readFile, ConnectionConfig } from "../config/config";
-import { chrisConnection } from "../connect/chrisConnection";
-import Client, { FileBrowserFolder, UserFile } from "@fnndsc/chrisapi";
-import fs from "fs";
-import path from "path";
-import { errorStack } from "../error/errorStack";
+/**
+ * @file ChRIS IO Operations
+ *
+ * This module handles file input/output operations with the ChRIS backend,
+ * including downloading and uploading files.
+ *
+ * @module
+ */
 
+import { chrisConnection } from "../connect/chrisConnection.js";
+import Client, { FileBrowserFolder, UserFile } from "@fnndsc/chrisapi";
+import { errorStack } from "../error/errorStack.js";
+
+/**
+ * Class for handling IO operations with ChRIS.
+ */
 export class ChrisIO {
   private _chrisFolder: string = "";
-  private _client: Client | null;
+  private _client: Client | null = null;
 
   constructor() {
-    this._client = chrisConnection.getClient();
+    // Client initialization is deferred or handled via async accessor
+  }
+
+  /**
+   * Gets the ChRIS client instance, initializing it if necessary.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
+    if (!this._client) {
+      this._client = await chrisConnection.client_get();
+    }
+    return this._client;
   }
 
   get chrisFolder(): string {
@@ -21,17 +41,18 @@ export class ChrisIO {
     this._chrisFolder = folder;
   }
 
-  get client(): Client | null {
-    return this._client;
-  }
-
+  /**
+   * Initializes the ChrisIO instance by creating a file browser folder.
+   * @returns A Promise resolving to true on success, false on failure, or null if client is missing.
+   */
   async initialize(): Promise<boolean | null> {
-    if (!this.client) {
+    const client = await this.client_get();
+    if (!client) {
       return null;
     }
     try {
       const fileBrowserFolder: FileBrowserFolder =
-        await this.client.createFileBrowserFolder({ path: this.chrisFolder });
+        await client.createFileBrowserFolder({ path: this.chrisFolder });
       return true;
     } catch (error: unknown) {
       errorStack.push(
@@ -50,14 +71,20 @@ export class ChrisIO {
     );
   }
 
+  /**
+   * Downloads a file from ChRIS by its ID.
+   * @param fileId - The ID of the file to download.
+   * @returns A Promise resolving to a Buffer of the file content, or null on failure.
+   */
   async file_download(fileId: number): Promise<Buffer | null> {
-    if (!this.client) {
+    const client = await this.client_get();
+    if (!client) {
       console.error("ChRIS client is not initialized");
       return null;
     }
 
     try {
-      const userFile: UserFile | null = await this.client.getUserFile(fileId);
+      const userFile: UserFile | null = await client.getUserFile(fileId);
 
       if (!userFile) {
         throw new Error(`Failed to get file with ID ${fileId}`);
@@ -85,8 +112,15 @@ export class ChrisIO {
     }
   }
 
+  /**
+   * Uploads a file to ChRIS.
+   * @param fileBlob - The file content as a Blob.
+   * @param chrisPath - The path in ChRIS to upload to.
+   * @returns A Promise resolving to true on success, false on failure.
+   */
   async file_upload(fileBlob: Blob, chrisPath: string): Promise<boolean> {
-    if (!this.client) {
+    const client = await this.client_get();
+    if (!client) {
       console.error("ChRIS client is not initialized");
       return false;
     }
@@ -98,7 +132,7 @@ export class ChrisIO {
 
       const uploadFileObj: { fname: any } = { fname: fileBlob };
 
-      await this.client.uploadFile(data, uploadFileObj);
+      await client.uploadFile(data, uploadFileObj);
       return true;
     } catch (error: unknown) {
       errorStack.push(
@@ -110,8 +144,13 @@ export class ChrisIO {
     }
   }
 
+  /**
+   * Performs a dummy upload for testing purposes.
+   * @returns A Promise resolving to true on success, or null if client is missing.
+   */
   async dummy_upload(): Promise<boolean | null> {
-    if (!this.client) {
+    const client = await this.client_get();
+    if (!client) {
       return null;
     }
     const data: { upload_path: string } = {
@@ -125,7 +164,7 @@ export class ChrisIO {
     });
     const uploadFileObj: { fname: Blob } = { fname: uploadFileBlob };
 
-    const result: any = await this.client.uploadFile(data, uploadFileObj);
+    const result: any = await client.uploadFile(data, uploadFileObj);
     return true;
   }
 }

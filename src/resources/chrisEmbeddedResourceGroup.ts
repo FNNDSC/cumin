@@ -1,7 +1,16 @@
-import { ChRISResourceGroup } from "../resources/chrisResourceGroup";
+/**
+ * @file ChRIS Embedded Resource Group
+ *
+ * This module manages groups of ChRIS resources that are embedded within other resources
+ * (e.g., files within a folder, parameters of a plugin). It handles context-aware initialization.
+ *
+ * @module
+ */
+
+import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
-import { chrisConnection } from "../connect/chrisConnection";
-import { errorStack } from "../error/errorStack";
+import { chrisConnection } from "../connect/chrisConnection.js";
+import { errorStack } from "../error/errorStack.js";
 import Client from "@fnndsc/chrisapi";
 
 export class ChRISConnectionError extends Error {
@@ -55,6 +64,9 @@ export interface ChRISEmbeddedResourceGroupParams<
   context: string;
 }
 
+/**
+ * Group of ChRIS resources embedded within a specific context.
+ */
 export class ChRISEmbeddedResourceGroup<
   T extends FileBrowserFolder | Plugin | Feed
 > extends ChRISResourceGroup {
@@ -104,7 +116,7 @@ export class ChRISEmbeddedResourceGroup<
   private static async initializeContext<
     T extends FileBrowserFolder | Plugin | Feed
   >(context: string): Promise<T | null> {
-    const client: Client | null = chrisConnection.getClient();
+    const client: Client | null = await chrisConnection.client_get();
     if (!client) {
       throw new ChRISConnectionError("ChRIS client is not initialized");
     }

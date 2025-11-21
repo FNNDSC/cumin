@@ -1,9 +1,21 @@
-import { sessionConfig, readFile, ConnectionConfig } from "../config/config";
-import fs from "fs";
-import path from "path";
-import { QueryHits } from "../utils/keypair";
-import { ChRISPlugin } from "../plugins/chrisPlugins";
+/**
+ * @file ChRIS Context Management
+ *
+ * This module manages the context of the ChRIS session, including the current user,
+ * URL, feed, folder, and plugin. It interacts with the session configuration to
+ * persist and retrieve context information.
+ *
+ * @module
+ */
 
+import { sessionConfig, initializeConfig, ConnectionConfig } from "../config/config.js";
+import * as path from "path";
+import { QueryHits } from "../utils/keypair.js";
+import { ChRISPlugin } from "../plugins/chrisPlugins.js";
+
+/**
+ * Enum defining the types of context available in ChRIS.
+ */
 export enum Context {
   ChRISURL = "URL",
   ChRISuser = "user",
@@ -12,6 +24,9 @@ export enum Context {
   ChRISplugin = "plugin",
 }
 
+/**
+ * Interface representing the context associated with a specific URL.
+ */
 export interface URLContext {
   folder: string | null;
   feed: string | null;
@@ -19,11 +34,17 @@ export interface URLContext {
   token: string | null;
 }
 
+/**
+ * Interface representing a single context, extending URLContext with URL and user.
+ */
 export interface SingleContext extends URLContext {
   URL: string | null;
   user: string | null;
 }
 
+/**
+ * Interface representing the context for a user, including multiple URLs.
+ */
 export interface UserContext {
   urls: {
     [url: string]: URLContext;
@@ -31,6 +52,23 @@ export interface UserContext {
   currentURL: string | null;
 }
 
+/**
+ * Interface representing the full context of the application, including multiple users.
+ */
+export interface FullContext {
+  users: {
+    [user: string]: UserContext;
+  };
+  currentUser: string | null;
+  currentURL: string | null;
+}
+
+/**
+ * Parses a ChRIS context URL string into a SingleContext object.
+ *
+ * @param url - The context URL string to parse.
+ * @returns A Promise resolving to a SingleContext object.
+ */
 export async function parseChRISContextURL(
   url: string
 ): Promise<SingleContext> {
@@ -81,6 +119,12 @@ export async function parseChRISContextURL(
   return result;
 }
 
+/**
+ * helper to get plugin ID from a searchable string.
+ *
+ * @param searchable - The string to search for.
+ * @returns A Promise resolving to the plugin ID or null.
+ */
 async function id_fromSearchable(searchable: string): Promise<string | null> {
   const plugin: ChRISPlugin = new ChRISPlugin();
   const ids: QueryHits | null = await plugin.pluginIDs_getFromSearchable(
@@ -94,14 +138,9 @@ async function id_fromSearchable(searchable: string): Promise<string | null> {
   return null;
 }
 
-export interface FullContext {
-  users: {
-    [user: string]: UserContext;
-  };
-  currentUser: string | null;
-  currentURL: string | null;
-}
-
+/**
+ * Manages the ChRIS session context.
+ */
 export class ChrisContext {
   private fullContext: FullContext = {
     users: {},
@@ -123,103 +162,127 @@ export class ChrisContext {
   }
 
   constructor() {
-    this.initialize();
+    // Initialize is async, so we can't await it in constructor.
+    // Consumers should rely on the state being eventually consistent or call methods that ensure initialization.
+    // this.initialize(); // Removed to avoid accessing uninitialized sessionConfig
   }
 
-  initialize(): void {
+  /**
+   * Initializes the context by loading data from the configuration directory.
+   */
+  async initialize(): Promise<void> {
     const configDir: string = sessionConfig.connection.configDir;
-    const users: string[] = fs
-      .readdirSync(configDir)
-      .filter((file) => fs.statSync(path.join(configDir, file)).isDirectory());
+    const storage = sessionConfig.connection.storage;
 
-    this.fullContext.currentUser = sessionConfig.connection.loadLastUser();
-    const currentURL: string | null = sessionConfig.connection.loadChrisURL();
+    if (!(await storage.exists(configDir))) {
+      return;
+    }
+
+    const files = await storage.readdir(configDir);
+    const users: string[] = [];
+
+    for (const file of files) {
+      if (await storage.isDirectory(path.join(configDir, file))) {
+        users.push(file);
+      }
+    }
+
+    this.fullContext.currentUser = await sessionConfig.connection.loadLastUser();
+    const currentURL: string | null = await sessionConfig.connection.loadChrisURL();
     this.fullContext.currentURL = currentURL;
 
-    users.forEach((user) => {
+    for (const user of users) {
       this.fullContext.users[user] = { urls: {}, currentURL: null };
       const userDir: string = path.join(configDir, user);
       const chrisURLFile = path.join(
         userDir,
         sessionConfig.connection.chrisURLfile
       );
-      if (fs.existsSync(chrisURLFile)) {
-        this.fullContext.users[user].currentURL = readFile(chrisURLFile);
+      if (await storage.exists(chrisURLFile)) {
+        this.fullContext.users[user].currentURL = await storage.read(chrisURLFile);
       }
-      const urlDirs: string[] = fs
-        .readdirSync(userDir)
-        .filter((file: string): boolean =>
-          fs.statSync(path.join(userDir, file)).isDirectory()
-        );
-      urlDirs.forEach((urlDir: string): void => {
+      
+      if (!(await storage.exists(userDir))) continue;
+
+      const userFiles = await storage.readdir(userDir);
+      const urlDirs: string[] = [];
+      
+      for (const file of userFiles) {
+          if (await storage.isDirectory(path.join(userDir, file))) {
+              urlDirs.push(file);
+          }
+      }
+
+      for (const urlDir of urlDirs) {
         let url: string = (
           sessionConfig.connection as ConnectionConfig
         ).dirToUri(urlDir);
+        
         this.fullContext.users[user].urls[url] = {
-          folder: readFile(path.join(userDir, urlDir, sessionConfig.cwdFile)),
-          feed: readFile(path.join(userDir, urlDir, sessionConfig.feedFile)),
-          plugin: readFile(
+          folder: await storage.read(path.join(userDir, urlDir, sessionConfig.cwdFile)),
+          feed: await storage.read(path.join(userDir, urlDir, sessionConfig.feedFile)),
+          plugin: await storage.read(
             path.join(userDir, urlDir, sessionConfig.pluginFile)
           ),
-          token: readFile(
+          token: await storage.read(
             path.join(userDir, urlDir, sessionConfig.connection.tokenFile)
           ),
         };
-      });
-    });
+      }
+    }
   }
 
   getFullContext(): FullContext {
     return this.fullContext;
   }
 
-  ChRISURL_get(): string | null {
+  async ChRISURL_get(): Promise<string | null> {
     return sessionConfig.connection.loadChrisURL();
   }
 
-  ChRISuser_get(): string | null {
+  async ChRISuser_get(): Promise<string | null> {
     return sessionConfig.connection.loadLastUser();
   }
 
-  ChRISfolder_get(): string | null {
+  async ChRISfolder_get(): Promise<string | null> {
     return sessionConfig.getPathContext();
   }
 
-  ChRISfeed_get(): string | null {
+  async ChRISfeed_get(): Promise<string | null> {
     return sessionConfig.getFeedContext();
   }
 
-  ChRISfolder_set(path: string): boolean {
+  async ChRISfolder_set(path: string): Promise<boolean> {
     return sessionConfig.setPathContext(path);
   }
 
-  ChRISfeed_set(feedID: string): boolean {
+  async ChRISfeed_set(feedID: string): Promise<boolean> {
     return sessionConfig.setFeedContext(feedID);
   }
 
-  ChRISplugin_set(pluginID: string): boolean {
+  async ChRISplugin_set(pluginID: string): Promise<boolean> {
     return sessionConfig.setPluginContext(pluginID);
   }
 
-  ChRISplugin_get(): string | null {
+  async ChRISplugin_get(): Promise<string | null> {
     return sessionConfig.getPluginContext();
   }
 
-  get folderpath(): string | null {
+  async getFolderpath(): Promise<string | null> {
     return sessionConfig.getPathContext();
   }
 
-  currentContext_update(): SingleContext {
-    this._singleContext.URL = this.ChRISURL_get();
-    this._singleContext.user = this.ChRISuser_get();
-    this._singleContext.folder = this.ChRISfolder_get();
-    this._singleContext.feed = this.ChRISfeed_get();
-    this._singleContext.plugin = this.ChRISplugin_get();
+  async currentContext_update(): Promise<SingleContext> {
+    this._singleContext.URL = await this.ChRISURL_get();
+    this._singleContext.user = await this.ChRISuser_get();
+    this._singleContext.folder = await this.ChRISfolder_get();
+    this._singleContext.feed = await this.ChRISfeed_get();
+    this._singleContext.plugin = await this.ChRISplugin_get();
     return this._singleContext;
   }
 
-  getCurrent(context: Context): string | null {
-    this.currentContext_update();
+  async getCurrent(context: Context): Promise<string | null> {
+    await this.currentContext_update();
     switch (context) {
       case Context.ChRISURL:
         return this._singleContext.URL;
@@ -232,35 +295,36 @@ export class ChrisContext {
       case Context.ChRISplugin:
         return this._singleContext.plugin;
     }
+    return null;
   }
 
-  setCurrent(context: Context, value: string): boolean {
+  async setCurrent(context: Context, value: string): Promise<boolean> {
     let status: boolean = false;
-    this.currentContext_update();
+    await this.currentContext_update();
     switch (context) {
       case Context.ChRISuser:
         this._singleContext.user = value;
-        status = sessionConfig.connection.saveLastUser(value);
+        status = await sessionConfig.connection.saveLastUser(value);
         break;
       case Context.ChRISURL:
         this._singleContext.URL = value;
-        status = sessionConfig.connection.saveChrisURL(value);
+        status = await sessionConfig.connection.saveChrisURL(value);
         break;
       case Context.ChRISfolder:
         this._singleContext.folder = value;
-        status = this.ChRISfolder_set(value);
+        status = await this.ChRISfolder_set(value);
         break;
       case Context.ChRISfeed:
         this._singleContext.feed = value;
-        status = this.ChRISfeed_set(value);
+        status = await this.ChRISfeed_set(value);
         break;
       case Context.ChRISplugin:
         this._singleContext.plugin = value;
-        status = this.ChRISplugin_set(value);
+        status = await this.ChRISplugin_set(value);
         break;
     }
-    sessionConfig.connection.initialize();
-    sessionConfig.initialize();
+    await sessionConfig.connection.initialize();
+    await sessionConfig.initialize();
     return status;
   }
 }

@@ -1,3 +1,12 @@
+/**
+ * @file ChRIS Resource Management
+ *
+ * This module defines the base class and interfaces for managing ChRIS resources.
+ * It provides functionality for listing, filtering, and manipulating resource items.
+ *
+ * @module
+ */
+
 import Client from "@fnndsc/chrisapi";
 import { ListResource, Resource, ItemResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
@@ -41,6 +50,9 @@ export interface Dictionary {
   [key: string]: string | number | boolean;
 }
 
+/**
+ * Base class for managing ChRIS resources.
+ */
 export class ChRISResource {
   private _client: Client | null = null;
   private _resourceName: string = "";
@@ -49,13 +61,21 @@ export class ChRISResource {
   private _resourceArray: ItemResource[] | null | undefined = null;
   private _resourceItem: ItemResource | null = null;
   private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
+  private _lazyMethodName: string | null = null;
+  private _lazyObjProvider: (() => Promise<any>) | null = null;
 
   constructor() {
-    this._client = chrisConnection.getClient();
-    this.loggedIn_check();
+    // Client initialization is deferred
   }
 
-  get client(): Client | null {
+  /**
+   * Retrieves the ChRIS client instance asynchronously.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
+    if (!this._client) {
+      this._client = await chrisConnection.client_get();
+    }
     return this._client;
   }
 
@@ -71,17 +91,11 @@ export class ChRISResource {
     this._resourceCollection = collection;
   }
 
-  loggedIn_check(): boolean {
-    let loggedIn: boolean = true;
-    if (!this._client) {
-      console.log(
-        "(resource) Not connected to ChRIS. Please connect first using the connect command."
-      );
-      loggedIn = false;
-    }
-    return loggedIn;
-  }
-
+  /**
+   * Converts a resource item to a dictionary.
+   * @param item - The item to convert.
+   * @returns A dictionary representation of the item.
+   */
   resourceItem_toDict(item: Item): Dictionary {
     return item.data.reduce((acc: Dictionary, { name, value }) => {
       acc[name] = value;
@@ -89,20 +103,38 @@ export class ChRISResource {
     }, {});
   }
 
+  /**
+   * Converts a list of resource items to dictionaries.
+   * @param items - The list of items to convert.
+   * @returns An array of dictionaries.
+   */
   resourceItems_toDicts(items: Item[]): Dictionary[] {
     return items.map(this.resourceItem_toDict);
   }
 
+  /**
+   * Deletes a resource item by its ID.
+   * @param id - The ID of the item to delete.
+   * @returns A Promise resolving to true on success, false otherwise.
+   */
   async resourceItem_delete(id: number): Promise<boolean> {
     if (!(this._resourceCollection instanceof ListResource)) {
       return false;
     }
     const res: ItemResource = this._resourceCollection?.getItem(id);
-    const delop = await res._delete();
-    // res._delete seems to return "undefined"
-    return true;
+    try {
+      await res._delete();
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
+  /**
+   * Builds a list of items from a resource collection.
+   * @param resources - The resource collection.
+   * @returns An array of Items or null.
+   */
   resourceItems_buildFromCollection(
     resources: ListResource | Resource | null
   ): Item[] | null {
@@ -116,6 +148,12 @@ export class ChRISResource {
     }));
   }
 
+  /**
+   * Binds a resource fetching method to an object.
+   * @param obj - The object context.
+   * @param resourceMethod - The method to bind.
+   * @param resourceName - Optional name for the resource.
+   */
   resource_bindGetMethodToObj(
     obj: any,
     resourceMethod: (params: ListOptions) => Promise<any>,
@@ -126,6 +164,42 @@ export class ChRISResource {
     if (resourceName) this._resourceName = resourceName;
   }
 
+  /**
+   * Binds a resource fetching method lazily.
+   * @param objProvider - A function returning a Promise to the object context.
+   * @param methodName - The name of the method to bind.
+   * @param resourceName - Optional name for the resource.
+   */
+  resource_bindMethodLazy(
+    objProvider: () => Promise<any>,
+    methodName: string,
+    resourceName?: string
+  ): void {
+    this._lazyObjProvider = objProvider;
+    this._lazyMethodName = methodName;
+    if (resourceName) this._resourceName = resourceName;
+  }
+
+  private async _resolveLazyBinding(): Promise<void> {
+    if (!this.resourceMethod && this._lazyObjProvider && this._lazyMethodName) {
+      const obj = await this._lazyObjProvider();
+      if (obj) {
+        // Ensure the method exists before binding
+        const method = obj[this._lazyMethodName];
+        if (typeof method === 'function') {
+            this.resourceMethod = method.bind(obj);
+        } else {
+            console.error(`Method ${this._lazyMethodName} not found on object.`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Lists and filters resources based on options.
+   * @param options - Filtering and listing options.
+   * @returns A Promise resolving to filtered resource data or null.
+   */
   async resources_listAndFilterByOptions(
     options?: Partial<ListOptions>
   ): Promise<FilteredResourceData | null> {
@@ -135,6 +209,11 @@ export class ChRISResource {
     return results;
   }
 
+  /**
+   * Filters resources by specific fields.
+   * @param resourcesByFields - The resources and fields to filter.
+   * @returns Filtered data suitable for table display.
+   */
   resources_filterByFields(
     resourcesByFields: ResourcesByFields | null
   ): FilteredResourceData | null {
@@ -232,6 +311,9 @@ export class ChRISResource {
       limit: options?.limit ?? 20,
       offset: options?.offset ?? 0,
     };
+    
+    await this._resolveLazyBinding();
+
     if (!this.resourceMethod) {
       return null;
     }
@@ -241,7 +323,7 @@ export class ChRISResource {
     }
     this._resourceArray = this._resourceCollection?.getItems();
     if (this._resourceArray) {
-      console.log(this._resourceArray);
+      // console.log(this._resourceArray);
       return this._resourceArray;
     }
     return null;
@@ -303,6 +385,9 @@ export class ChRISResource {
     if (resourceMethod) {
       this.resourceMethod = resourceMethod;
     }
+    
+    await this._resolveLazyBinding();
+
     if (!this.resourceMethod) return params;
     let resources: ListResource | null;
     try {
@@ -337,6 +422,12 @@ export class ChRISResource {
   }
 }
 
+/**
+ * Helper to get resource fields from a resource object.
+ * @param obj - The resource object.
+ * @param fields - The fields to extract.
+ * @returns A SimpleRecord of fields or null.
+ */
 export function resourceFields_get(
   obj: Resource | ListResource,
   fields: string[]

@@ -15,6 +15,8 @@ export * from "./resources/chrisEmbeddedResourceGroup";
 export * from "./filebrowser/chrisFileBrowser";
 export * from "./filebrowser/chrisFiles";
 export * from "./io/chrisIO";
+export * from "./io/io";
+export * from "./io/node_io";
 export * from "./utils/keypair";
 
 export async function getChrisVersion(url: string): Promise<string> {

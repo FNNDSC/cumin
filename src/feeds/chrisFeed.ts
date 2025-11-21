@@ -1,3 +1,13 @@
+/**
+ * @file ChRIS Feed Management
+ *
+ * This module provides classes for managing ChRIS feeds.
+ * It includes the `ChRISFeedGroup` for collection operations and `ChRISFeed` for individual feed operations,
+ * particularly creation from directories using the 'pl-dircopy' plugin.
+ *
+ * @module
+ */
+
 import Client from "@fnndsc/chrisapi";
 import { PluginInstance } from "@fnndsc/chrisapi";
 import { Feed } from "@fnndsc/chrisapi";
@@ -15,23 +25,34 @@ import {
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";
 
+/**
+ * Group handler for ChRIS feeds.
+ */
 export class ChRISFeedGroup extends ChRISResourceGroup {
   constructor() {
     super("Feeds", "getFeeds");
   }
 }
 
+/**
+ * Class for managing individual ChRIS feeds.
+ */
 export class ChRISFeed {
-  private _client: Client | null;
+  private _client: Client | null = null;
 
   constructor() {
-    this._client = chrisConnection.getClient();
+    // Client is fetched lazily
+  }
+
+  /**
+   * Retrieves the ChRIS client instance asynchronously.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
     if (!this._client) {
-      console.error(
-        "Could not access ChRIS. Have you connected with the 'connect' command?"
-      );
-      process.exit(1);
+      this._client = await chrisConnection.client_get();
     }
+    return this._client;
   }
 
   error_parse(error: unknown, activity?: string): null {
@@ -69,7 +90,11 @@ export class ChRISFeed {
     dirs: string,
     feedParams: ChRISObjectParams
   ): Promise<SimpleRecord | null> {
-    if (!this._client) {
+    const client = await this.client_get();
+    if (!client) {
+      console.error(
+        "Could not access ChRIS. Have you connected with the 'connect' command?"
+      );
       return null;
     }
     let pluginInstance: PluginInstance;
@@ -90,7 +115,7 @@ export class ChRISFeed {
         { dir: dirs },
         feedParams.params
       );
-      pluginInstance = await this._client.createPluginInstance(
+      pluginInstance = await client.createPluginInstance(
         pluginID,
         createParams as ChRISObjectParams & { previous_id: 0 }
       );
@@ -102,9 +127,5 @@ export class ChRISFeed {
       "name",
       "owner_username",
     ]);
-  }
-
-  public get client(): Client | null {
-    return this._client;
   }
 }

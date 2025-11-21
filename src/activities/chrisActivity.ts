@@ -1,24 +1,29 @@
+/**
+ * @file ChRIS Activity
+ *
+ * This module defines the base Activity class for interactions with ChRIS.
+ *
+ * @module
+ */
+
 import Client from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
-
+/**
+ * Base class for ChRIS activities.
+ */
 export class Activity {
-  private _client: Client | null = null;
+  // private _client: Client | null = null; // No longer needed
 
   public constructor() {
-    this._client = chrisConnection.getClient();
-    if(!this._client) {
-      console.error("Could not access ChRIS. Have you connected with the 'connect' command?");
-      process.exit(1);
-    }
-    
+    // Client is fetched lazily
   }
 
-  public get client(): Client | null{
-    return this._client;
+  /**
+   * Retrieves the ChRIS client instance asynchronously.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  public async client_get(): Promise<Client | null>{
+    return await chrisConnection.client_get();
   }
-
-
 }
-
-

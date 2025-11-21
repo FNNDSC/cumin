@@ -1,14 +1,24 @@
+/**
+ * @file ChRIS Plugin Management
+ *
+ * This module provides classes for managing ChRIS plugins.
+ * It includes the `ChRISPluginGroup` for collection operations and `ChRISPlugin` for individual plugin operations,
+ * such as searching for plugins and creating plugin instances.
+ *
+ * @module
+ */
+
 import Client, { PluginInstance } from "@fnndsc/chrisapi";
-import { chrisConnection } from "../connect/chrisConnection";
-import { chrisContext, Context } from "../context/chrisContext";
+import { chrisConnection } from "../connect/chrisConnection.js";
+import { chrisContext, Context } from "../context/chrisContext.js";
 import {
   ChRISResource,
   ListOptions,
   FilteredResourceData,
   Item,
   Dictionary,
-} from "../resources/chrisResources";
-import { ChRISResourceGroup } from "../resources/chrisResourceGroup";
+} from "../resources/chrisResources.js";
+import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import {
   ChRISElementsGet,
   QueryHits,
@@ -17,9 +27,12 @@ import {
   ChRISObjectParams,
   keyPairString_toJSON,
   CLItoDictionary,
-} from "../utils/keypair";
-import { errorStack } from "../error/errorStack";
+} from "../utils/keypair.js";
+import { errorStack } from "../error/errorStack.js";
 
+/**
+ * Group handler for ChRIS plugins.
+ */
 export class ChRISPluginGroup extends ChRISResourceGroup {
   constructor() {
     super("Plugins", "getPlugins");
@@ -30,17 +43,25 @@ interface PreviousIDParam {
   previous_id: number;
 }
 
+/**
+ * Class for managing individual ChRIS plugins.
+ */
 export class ChRISPlugin {
-  private _client: Client | null;
+  private _client: Client | null = null;
 
   constructor() {
-    this._client = chrisConnection.getClient();
+    // Client is fetched lazily
+  }
+
+  /**
+   * Retrieves the ChRIS client instance asynchronously.
+   * @returns A Promise resolving to the Client instance or null.
+   */
+  async client_get(): Promise<Client | null> {
     if (!this._client) {
-      console.error(
-        "Could not access ChRIS. Have you connected with the 'connect' command?"
-      );
-      process.exit(1);
+      this._client = await chrisConnection.client_get();
     }
+    return this._client;
   }
 
   pluginString_makeSearchable(plugin: string): string {
@@ -63,8 +84,8 @@ export class ChRISPlugin {
     return pluginList;
   }
 
-  previousID_get(): number | null {
-    const previousIDstring: string | null = chrisContext.ChRISplugin_get();
+  async previousID_get(): Promise<number | null> {
+    const previousIDstring: string | null = await chrisContext.ChRISplugin_get();
     if (!previousIDstring) {
       errorStack.push(
         "error",
@@ -80,12 +101,17 @@ export class ChRISPlugin {
     previousID: number,
     options: ChRISObjectParams
   ): Promise<PluginInstance | undefined | null> {
+    const client = await this.client_get();
+    if (!client) {
+      console.error("Could not access ChRIS. Client is not initialized.");
+      return null;
+    }
     const combinedParams: ChRISObjectParams & PreviousIDParam = {
       ...options,
       previous_id: previousID,
     };
     const pluginInstance: PluginInstance | undefined | null =
-      await this._client?.createPluginInstance(pluginID, combinedParams);
+      await client.createPluginInstance(pluginID, combinedParams);
 
     if (!pluginInstance) {
       errorStack.push("error", "Failed to create plugin instance");
@@ -122,7 +148,7 @@ export class ChRISPlugin {
     }
     const pluginID: number = pluginList.hits[0];
     let previousID: number | null;
-    if ((previousID = this.previousID_get()) === null) {
+    if ((previousID = await this.previousID_get()) === null) {
       return null;
     }
 
@@ -154,6 +180,7 @@ export class ChRISPlugin {
     dataField: string
   ): Promise<QueryHits | null> {
     const chrisPluginGroup = new ChRISPluginGroup();
+    // We rely on lazy initialization of ChRISResourceGroup
     const searchParams: ListOptions = optionsToParams(searchOptions);
     const searchResults: FilteredResourceData | null =
       await chrisPluginGroup.asset.resources_listAndFilterByOptions(
