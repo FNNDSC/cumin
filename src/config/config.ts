@@ -7,6 +7,9 @@ import * as os from "os";
 
 const name = "@fnndsc/cumin";
 
+/**
+ * Options for configuring a ChRIS connection.
+ */
 export interface ConnectionConfigOptions {
   configDir?: string;
   chrisURLfile?: string;
@@ -20,6 +23,9 @@ export interface ConnectionConfigOptions {
   tokenFilepath?: string;
 }
 
+/**
+ * Options for configuring a ChRIS session.
+ */
 export interface SessionConfigOptions {
   cwdFile?: string;
   cwdFilename?: string;
@@ -30,6 +36,10 @@ export interface SessionConfigOptions {
   storageProvider?: IStorageProvider; // Add storageProvider to options
 }
 
+/**
+ * Manages configuration for connecting to a ChRIS instance.
+ * Handles storage of user credentials, URLs, and context directories.
+ */
 export class ConnectionConfig {
   private static instance: ConnectionConfig;
   private storageProvider: IStorageProvider;
@@ -69,43 +79,65 @@ export class ConnectionConfig {
     this.currentDirectory = options.currentDirectory || process.cwd();
   }
 
-  public static async getInstance(
+  /**
+   * Get the singleton instance of ConnectionConfig.
+   *
+   * @param storageProvider - The storage provider to use.
+   * @param options - Optional configuration options.
+   * @returns A promise resolving to the ConnectionConfig instance.
+   */
+  public static async instance_get(
     storageProvider: IStorageProvider,
     options?: ConnectionConfigOptions
   ): Promise<ConnectionConfig> {
     if (!ConnectionConfig.instance) {
       ConnectionConfig.instance = new ConnectionConfig(options, storageProvider);
-      await ConnectionConfig.instance.initialize();
+      await ConnectionConfig.instance.init();
     }
     return ConnectionConfig.instance;
   }
 
-  public async initialize(): Promise<void> {
-    await this.ensureDirExists(this.configDir);
-    const lastUser: string | null = await this.loadLastUser();
+  /**
+   * Initialize the connection configuration.
+   * Loads last user and ChRIS URL from storage.
+   */
+  public async init(): Promise<void> {
+    await this.dir_ensureExists(this.configDir);
+    const lastUser: string | null = await this.lastUser_load();
     if (!lastUser) {
       return;
     }
     this.userContextDir = path.join(this.configDir, lastUser);
     this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
-    const lastURL: string | null = await this.loadChrisURL();
+    const lastURL: string | null = await this.chrisURL_load();
     if (!lastURL) {
       return;
     }
     this.userChRISContextDir = path.join(
       this.userContextDir,
-      this.uriToDir(lastURL)
+      this.uri_toDir(lastURL)
     );
     this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
-  private async ensureDirExists(dir: string): Promise<void> {
+  /**
+   * Ensure a directory exists in storage.
+   *
+   * @param dir - The directory path to check/create.
+   */
+  private async dir_ensureExists(dir: string): Promise<void> {
     if (!(await this.storageProvider.exists(dir))) {
       await this.storageProvider.mkdir(dir, { recursive: true });
     }
   }
 
-  public uriToDir(uri: string): string {
+  /**
+   * Convert a URI to a directory-safe string.
+   *
+   * @param uri - The URI to convert.
+   * @returns A string safe for use as a directory name.
+   */
+  public uri_toDir(uri: string): string {
     return uri
       .replace("://", "___") // Use triple underscore for protocol separator
       .replace(/:/g, "===") // Use triple equals for colon (to handle port numbers)
@@ -113,7 +145,14 @@ export class ConnectionConfig {
       .replace(/\./g, "--"); // Use double dash for dots
   }
 
-  public dirToUri(dir: string): string {
+  /**
+   * Convert a directory-safe string back to a URI.
+   *
+   * @param dir - The directory name to convert.
+   * @returns The reconstructed URI.
+   * @throws Error if the directory name format is invalid.
+   */
+  public dir_toUri(dir: string): string {
     let uri = dir
       .replace(/--/g, ".") // Convert double dashes back to dots
       .replace(/___/g, "://") // Convert triple underscore back to protocol separator
@@ -135,24 +174,36 @@ export class ConnectionConfig {
     return `${protocol}://${domainPart}/${path}`;
   }
 
-  public async setContext(user: string, url?: string): Promise<void> {
-    await this.saveLastUser(user);
+  /**
+   * Set the current user and ChRIS URL context.
+   *
+   * @param user - The username.
+   * @param url - Optional ChRIS URL.
+   */
+  public async context_set(user: string, url?: string): Promise<void> {
+    await this.lastUser_save(user);
     this.userContextDir = path.join(this.configDir, user);
-    await this.ensureDirExists(this.userContextDir);
+    await this.dir_ensureExists(this.userContextDir);
     this.chrisURLfilepath = path.join(this.userContextDir, this.chrisURLfile);
     if (!url) {
       return;
     }
-    await this.saveChrisURL(url);
+    await this.chrisURL_save(url);
     this.userChRISContextDir = path.join(
       this.userContextDir,
-      this.uriToDir(url)
+      this.uri_toDir(url)
     );
-    await this.ensureDirExists(this.userChRISContextDir);
+    await this.dir_ensureExists(this.userChRISContextDir);
     this.tokenFilepath = path.join(this.userChRISContextDir, this.tokenFile);
   }
 
-  public async saveLastUser(user: string): Promise<boolean> {
+  /**
+   * Save the last logged-in user to storage.
+   *
+   * @param user - The username to save.
+   * @returns True if successful, false otherwise.
+   */
+  public async lastUser_save(user: string): Promise<boolean> {
     const userDir = path.dirname(this.userFilepath);
     const userFolderPath = path.join(userDir, user);
 
@@ -160,33 +211,49 @@ export class ConnectionConfig {
       await this.storageProvider.write(this.userFilepath, user);
       return true;
     }
-    errorStack.push(
+    errorStack.stack_push(
       "error",
       `user '${user}' has not logged in previously -- no context found`
     );
     return false;
   }
 
-  public async saveChrisURL(url: string): Promise<boolean> {
+  /**
+   * Save the ChRIS URL to storage.
+   *
+   * @param url - The URL to save.
+   * @returns True if successful, false otherwise.
+   */
+  public async chrisURL_save(url: string): Promise<boolean> {
     const urlDir = path.dirname(this.chrisURLfilepath);
-    const urlFolderPath = path.join(urlDir, this.uriToDir(url));
+    const urlFolderPath = path.join(urlDir, this.uri_toDir(url));
 
     if (await this.storageProvider.exists(urlFolderPath)) {
       await this.storageProvider.write(this.chrisURLfilepath, url);
       return true;
     }
-    errorStack.push(
+    errorStack.stack_push(
       "error",
       `URL '${url}' has not been accessed previously -- no context found`
     );
     return false;
   }
 
-  public async loadLastUser(): Promise<string | null> {
+  /**
+   * Load the last logged-in user from storage.
+   *
+   * @returns The username or null if not found.
+   */
+  public async lastUser_load(): Promise<string | null> {
     return this.storageProvider.read(this.userFilepath);
   }
 
-  public async loadChrisURL(): Promise<string | null> {
+  /**
+   * Load the saved ChRIS URL from storage.
+   *
+   * @returns The URL or null if not found.
+   */
+  public async chrisURL_load(): Promise<string | null> {
     const url: string | null = await this.storageProvider.read(
       this.chrisURLfilepath
     );
@@ -194,6 +261,10 @@ export class ConnectionConfig {
   }
 }
 
+/**
+ * Manages session-specific configuration such as current working directory (CWD),
+ * active feed, and active plugin.
+ */
 export class SessionConfig {
   private static instance: SessionConfig;
 
@@ -225,23 +296,34 @@ export class SessionConfig {
     return this.connectionConfig;
   }
 
-  public static async getInstance(
+  /**
+   * Get the singleton instance of SessionConfig.
+   *
+   * @param storageProvider - The storage provider to use.
+   * @param options - Optional configuration options.
+   * @returns A promise resolving to the SessionConfig instance.
+   */
+  public static async instance_get(
     storageProvider: IStorageProvider,
     options?: SessionConfigOptions
   ): Promise<SessionConfig> {
     if (!SessionConfig.instance) {
-      const connectionConfig = await ConnectionConfig.getInstance(storageProvider);
+      const connectionConfig = await ConnectionConfig.instance_get(storageProvider);
       SessionConfig.instance = new SessionConfig(
         options,
         connectionConfig,
         storageProvider
       );
-      await SessionConfig.instance.initialize();
+      await SessionConfig.instance.init();
     }
     return SessionConfig.instance;
   }
 
-  public async initialize(): Promise<void> {
+  /**
+   * Initialize the session configuration.
+   * Sets up filenames based on the user's context directory.
+   */
+  public async init(): Promise<void> {
     this.cwdFilename = path.join(
       this.connectionConfig.userChRISContextDir,
       this.cwdFile
@@ -256,38 +338,83 @@ export class SessionConfig {
     );
   }
 
-  public async setPathContext(path: string): Promise<boolean> {
+  /**
+   * Set the current working directory context.
+   *
+   * @param path - The path to save.
+   * @returns True if successful.
+   */
+  public async pathContext_set(path: string): Promise<boolean> {
     await this.storageProvider.write(this.cwdFilename, path);
     return true;
   }
 
-  public async getPathContext(): Promise<string | null> {
+  /**
+   * Get the current working directory context.
+   *
+   * @returns The saved path or null if not found.
+   */
+  public async pathContext_get(): Promise<string | null> {
     return this.storageProvider.read(this.cwdFilename);
   }
 
-  public async setFeedContext(feedID: string): Promise<boolean> {
+  /**
+   * Set the active feed context.
+   *
+   * @param feedID - The ID of the feed.
+   * @returns True if successful.
+   */
+  public async feedContext_set(feedID: string): Promise<boolean> {
     await this.storageProvider.write(this.feedFilename, feedID);
     return true;
   }
 
-  public async getFeedContext(): Promise<string | null> {
+  /**
+   * Get the active feed context.
+   *
+   * @returns The saved feed ID or null if not found.
+   */
+  public async feedContext_get(): Promise<string | null> {
     return this.storageProvider.read(this.feedFilename);
   }
 
-  public async setPluginContext(pluginID: string): Promise<boolean> {
+  /**
+   * Set the active plugin context.
+   *
+   * @param pluginID - The ID of the plugin.
+   * @returns True if successful.
+   */
+  public async pluginContext_set(pluginID: string): Promise<boolean> {
     await this.storageProvider.write(this.pluginFilename, pluginID);
     return true;
   }
 
-  public async getPluginContext(): Promise<string | null> {
+  /**
+   * Get the active plugin context.
+   *
+   * @returns The saved plugin ID or null if not found.
+   */
+  public async pluginContext_get(): Promise<string | null> {
     return this.storageProvider.read(this.pluginFilename);
   }
 }
 
+/**
+ * Global connection configuration instance.
+ */
 export let connectionConfig: ConnectionConfig;
+
+/**
+ * Global session configuration instance.
+ */
 export let sessionConfig: SessionConfig;
 
-export async function initializeConfig(storageProvider: IStorageProvider) {
-  connectionConfig = await ConnectionConfig.getInstance(storageProvider);
-  sessionConfig = await SessionConfig.getInstance(storageProvider);
+/**
+ * Initialize both connection and session configurations.
+ *
+ * @param storageProvider - The storage provider to use.
+ */
+export async function config_init(storageProvider: IStorageProvider) {
+  connectionConfig = await ConnectionConfig.instance_get(storageProvider);
+  sessionConfig = await SessionConfig.instance_get(storageProvider);
 }

@@ -1,6 +1,6 @@
-import { ChRISEmbeddedResourceGroup } from "./chrisEmbeddedResourceGroup";
+import { ChRISEmbeddedResourceGroup } from "./chrisEmbeddedResourceGroup.js";
 import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
-import { errorStack } from "../error/errorStack";
+import { errorStack } from "../error/errorStack.js";
 
 type ChRISResourceType = FileBrowserFolder | Plugin | Feed;
 
@@ -50,7 +50,7 @@ class ChRISObjContextFactory {
     } catch (error: unknown) {
       const errorMessage: string =
         error instanceof Error ? error.message : String(error);
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Failed to create ${this.config.name}: ${errorMessage}`
       );
@@ -102,7 +102,14 @@ for (const [key, config] of Object.entries(ObjContexts)) {
   objContextFactories[key] = new ChRISObjContextFactory(config);
 }
 
-export async function createObjContext(
+/**
+ * Create a ChRIS Embedded Resource Group for a given context.
+ *
+ * @param type - The type of context object to create (e.g., "ComputesOfPlugin").
+ * @param context - The context string (e.g., "plugin:123").
+ * @returns A promise resolving to the created resource group, or null on failure.
+ */
+export async function objContext_create(
   type: string,
   context: string
 ): Promise<ChRISEmbeddedResourceGroup<ChRISResourceType> | null> {
@@ -120,5 +127,5 @@ export async function createObjContext(
 }
 
 // Usage examples:
-// const pluginComputeResources: ChRISEmbeddedResourceGroup<Plugin> = await createObjContext('PluginComputeResources', 'plugin:123') as ChRISEmbeddedResourceGroup<Plugin>;
-// const filesContext: ChRISEmbeddedResourceGroup<FileBrowserFolder> = await createObjContext('ChRISFilesContext', 'folder:/path/to/folder') as ChRISEmbeddedResourceGroup<FileBrowserFolder>;
+// const pluginComputeResources: ChRISEmbeddedResourceGroup<Plugin> = await objContext_create('PluginComputeResources', 'plugin:123') as ChRISEmbeddedResourceGroup<Plugin>;
+// const filesContext: ChRISEmbeddedResourceGroup<FileBrowserFolder> = await objContext_create('ChRISFilesContext', 'folder:/path/to/folder') as ChRISEmbeddedResourceGroup<FileBrowserFolder>;

@@ -1,27 +1,45 @@
 import { ListOptions } from "../resources/chrisResources";
 
+/**
+ * Base parameters for ChRIS object operations.
+ */
 export interface ChRISObjectParams {
   limit?: number;
   offset?: number;
   page?: string;
   returnFilter?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
+/**
+ * Parameters for getting ChRIS elements, including search query.
+ */
 export interface ChRISElementsGet extends ChRISObjectParams {
   search?: string;
   params?: string;
 }
 
+/**
+ * Represents hits from a query.
+ */
 export interface QueryHits {
-  hits: Array<any>;
+  hits: Array<unknown>;
 }
 
+/**
+ * Represents parsed CLI arguments.
+ */
 export interface ClIarguments {
   [key: string]: string | boolean | number;
 }
 
-export function CLItoDictionary(cliString: string): ClIarguments {
+/**
+ * Parse a CLI string into a dictionary of arguments.
+ *
+ * @param cliString - The CLI argument string.
+ * @returns A dictionary of parsed arguments.
+ */
+export function CLI_toDictionary(cliString: string): ClIarguments {
   const result: ClIarguments = {};
   // Split the string by spaces, but keep quoted sections together
   const args = cliString.match(/('.*?'|".*?"|\S+)/g) || [];
@@ -45,7 +63,13 @@ export function CLItoDictionary(cliString: string): ClIarguments {
   return result;
 }
 
-export function keyPairString_toJSON(
+/**
+ * Parse a key-pair string (e.g., "key:value,key2:value2") into an object.
+ *
+ * @param searchString - The string containing key-value pairs.
+ * @returns A record of parsed key-value pairs.
+ */
+export function keyPairString_parse(
   searchString: string
 ): Record<string, string> {
   const searchParams: Record<string, string> = {};
@@ -60,18 +84,25 @@ export function keyPairString_toJSON(
   return searchParams;
 }
 
-export function applyKeyPairParams<T extends Record<string, any>>(
+/**
+ * Apply key-pair parameters from a search string to an existing params object.
+ *
+ * @param params - The base parameters object.
+ * @param searchString - Optional search string to parse and merge.
+ * @returns The merged parameters object.
+ */
+export function keyPairParams_apply<T extends Record<string, unknown>>(
   params: T,
   searchString?: string
 ): T {
   if (searchString) {
-    const searchParams = keyPairString_toJSON(searchString);
+    const searchParams = keyPairString_parse(searchString);
     return { ...params, ...searchParams };
   }
   return params;
 }
 
-function optionsReduce(options: ChRISElementsGet): ListOptions {
+function options_reduce(options: ChRISElementsGet): ListOptions {
   if (options.returnFilter && typeof options.returnFilter === "string") {
     try {
       const fieldsToReturn = options.returnFilter
@@ -91,7 +122,15 @@ function optionsReduce(options: ChRISElementsGet): ListOptions {
   return options;
 }
 
-export function optionsToParams(
+/**
+ * Convert options object to ChRIS list parameters.
+ * Handles pagination, offset, and key-pair filtering.
+ *
+ * @param options - The raw options object.
+ * @param keyPairField - The field name containing the key-pair string.
+ * @returns Formatted ListOptions.
+ */
+export function options_toParams(
   options: ChRISElementsGet,
   keyPairField: keyof ChRISElementsGet = "search"
 ): ListOptions {
@@ -101,18 +140,25 @@ export function optionsToParams(
   options.offset = options.offset ? options.offset : 0;
 
   if (typeof keyPairValue === "string") {
-    options = applyKeyPairParams(options, keyPairValue);
+    options = keyPairParams_apply(options as Record<string, unknown>, keyPairValue) as ChRISElementsGet;
   }
 
   if (options.returnFilter && typeof options.returnFilter === "string") {
-    options = optionsReduce(options);
+    options = options_reduce(options) as ChRISElementsGet;
   }
 
   return options;
 }
 
-export function extractRecordToQueryHits(
-  arrayList: Array<any>,
+/**
+ * Extract a specific field from a list of records into a QueryHits object.
+ *
+ * @param arrayList - The list of records.
+ * @param record - The field name to extract from each record.
+ * @returns A QueryHits object containing the extracted values.
+ */
+export function record_extract(
+  arrayList: Array<Record<string, unknown>>,
   record: string
 ): QueryHits {
   const queryHits: QueryHits = {

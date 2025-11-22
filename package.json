@@ -4,7 +4,7 @@
   "description": "Utility library for ChILI and other ChRIS-related JavaScript applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "types/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "rm -fr dist types && tsc && chmod +x ./dist/cli.js",
-    "test": "jest",
+    "test": "jest --coverage",
     "prepublishOnly": "npm run build"
   },
   "bin": {

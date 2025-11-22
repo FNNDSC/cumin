@@ -13,6 +13,9 @@ import { chrisConnection } from "../connect/chrisConnection.js";
 import { errorStack } from "../error/errorStack.js";
 import Client from "@fnndsc/chrisapi";
 
+/**
+ * Error thrown when the ChRIS client is not connected.
+ */
 export class ChRISConnectionError extends Error {
   constructor(message: string) {
     super(message);
@@ -20,6 +23,9 @@ export class ChRISConnectionError extends Error {
   }
 }
 
+/**
+ * Error thrown when ChRIS initialization fails.
+ */
 export class ChRISInitializationError extends Error {
   constructor(message: string) {
     super(message);
@@ -27,6 +33,9 @@ export class ChRISInitializationError extends Error {
   }
 }
 
+/**
+ * Error thrown when a context specification is invalid.
+ */
 export class ChRISContextSpecError extends Error {
   constructor(message: string) {
     super(message);
@@ -55,6 +64,9 @@ function context_split(context: unknown, delimiter: string = ":"): ContextSpec {
   return { type: parts[0], value: parts[1] };
 }
 
+/**
+ * Parameters for creating a ChRISEmbeddedResourceGroup.
+ */
 export interface ChRISEmbeddedResourceGroupParams<
   T extends FileBrowserFolder | Plugin | Feed
 > {
@@ -86,11 +98,11 @@ export class ChRISEmbeddedResourceGroup<
   ): Promise<ChRISEmbeddedResourceGroup<T> | null> {
     let params: ChRISEmbeddedResourceGroupParams<T>;
     try {
-      const chrisContextObj: T | null = await this.initializeContext<T>(
+      const chrisContextObj: T | null = await this.context_init<T>(
         context
       );
       if (!chrisContextObj) {
-        errorStack.push(
+        errorStack.stack_push(
           "warning",
           `could not initialize context ${context} for ${resourceName}`
         );
@@ -104,8 +116,7 @@ export class ChRISEmbeddedResourceGroup<
       };
       return new ChRISEmbeddedResourceGroup<T>(params);
     } catch (error) {
-      console.log(`error push! ${resourceName}`);
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Error: ${context} seems invalid for resource ${resourceName}.`
       );
@@ -113,7 +124,7 @@ export class ChRISEmbeddedResourceGroup<
     }
   }
 
-  private static async initializeContext<
+  private static async context_init<
     T extends FileBrowserFolder | Plugin | Feed
   >(context: string): Promise<T | null> {
     const client: Client | null = await chrisConnection.client_get();
@@ -157,7 +168,7 @@ export class ChRISEmbeddedResourceGroup<
     } catch (error: unknown) {
       const errorMessage: string =
         error instanceof Error ? error.message : String(error);
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Failed to get contextObject of type ${contextSpec.type} for value ${contextSpec.value}: ${errorMessage}`
       );
@@ -165,7 +176,7 @@ export class ChRISEmbeddedResourceGroup<
     }
 
     if (!chrisContextObj) {
-      errorStack.push(
+      errorStack.stack_push(
         "warning",
         `could not initialize contextObject of type ${contextSpec.type} for value ${contextSpec.value}`
       );

@@ -46,37 +46,65 @@ export class ChRISinode {
    * @param path - The path to the inode.
    * @returns A Promise resolving to a new ChRISinode instance.
    */
-  public static async create(path: string = ""): Promise<ChRISinode> {
+  public static async inode_create(path: string = ""): Promise<ChRISinode> {
     const instance = new ChRISinode(path);
-    await instance.initializeAndBind();
+    await instance.initAndBind();
     return instance;
   }
 
-  public get fileBrowser(): ChRISFileBrowser | null {
-    return this.getBrowser(BrowserType.Files);
+  /**
+   * Gets the file browser instance for this inode.
+   * @returns The file browser or null.
+   */
+  public get fileBrowser_get(): ChRISFileBrowser | null {
+    return this.browser_get(BrowserType.Files);
   }
 
-  public get linkBrowser(): ChRISFileBrowser | null {
-    return this.getBrowser(BrowserType.Links);
+  /**
+   * Gets the link browser instance for this inode.
+   * @returns The link browser or null.
+   */
+  public get linkBrowser_get(): ChRISFileBrowser | null {
+    return this.browser_get(BrowserType.Links);
   }
 
-  public get dirBrowser(): ChRISFileBrowser | null {
-    return this.getBrowser(BrowserType.Dirs);
+  /**
+   * Gets the directory browser instance for this inode.
+   * @returns The directory browser or null.
+   */
+  public get dirBrowser_get(): ChRISFileBrowser | null {
+    return this.browser_get(BrowserType.Dirs);
   }
 
-  public get path(): string {
+  /**
+   * Gets the path of this inode.
+   * @returns The path string.
+   */
+  public get path_get(): string {
     return this._path;
   }
 
-  public get fileBrowserFolder(): FileBrowserFolder | null {
+  /**
+   * Gets the underlying FileBrowserFolder object.
+   * @returns The FileBrowserFolder instance or null.
+   */
+  public get fileBrowserFolder_get(): FileBrowserFolder | null {
     return this._fileBrowserFolderObj;
   }
 
-  public getBrowser(type: BrowserType): ChRISBrowser {
+  /**
+   * Retrieves a specific browser type for this inode.
+   * @param type - The type of browser to retrieve.
+   * @returns The requested browser or null.
+   */
+  public browser_get(type: BrowserType): ChRISBrowser {
     return this._browsers.get(type) ?? null;
   }
 
-  private async initializeAndBind(): Promise<void> {
+  /**
+   * Initializes the inode and binds browsers.
+   */
+  private async initAndBind(): Promise<void> {
     this._client = await chrisConnection.client_get();
     if (!this._client) {
       throw new ChRISConnectionError("Could not access ChRIS. Have you connected with the 'connect' command?");
@@ -97,19 +125,19 @@ export class ChRISinode {
     this._browsers.set(BrowserType.Dirs, new ChRISFileBrowser(BrowserType.Dirs, this._fileBrowserFolderObj));
 
     for (const [_, browser] of this._browsers) {
-      if (browser && !browser.bindOp.status) {
-        throw new ChRISInitializationError(`Failed to bind browser: ${browser.bindOp.message}`);
+      if (browser && !browser.bindOp_get.status) {
+        throw new ChRISInitializationError(`Failed to bind browser: ${browser.bindOp_get.message}`);
       }
     }
   }
 }
 
 /**
- * @deprecated Use ChRISinode.create instead.
+ * @deprecated Use ChRISinode.inode_create instead.
  */
 export async function ChRISinode_create(path?: string): Promise<ChRISinode | null> {
   try {
-    return await ChRISinode.create(path);
+    return await ChRISinode.inode_create(path);
   } catch (error) {
     console.error("Failed to create ChRISinode:", error);
     return null;

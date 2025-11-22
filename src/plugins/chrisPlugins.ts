@@ -22,11 +22,11 @@ import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import {
   ChRISElementsGet,
   QueryHits,
-  optionsToParams,
-  extractRecordToQueryHits,
+  options_toParams,
+  record_extract,
   ChRISObjectParams,
-  keyPairString_toJSON,
-  CLItoDictionary,
+  keyPairString_parse,
+  CLI_toDictionary,
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";
 
@@ -78,7 +78,7 @@ export class ChRISPlugin {
       pluginSpec
     );
     if (!pluginList || pluginList.hits.length === 0) {
-      errorStack.push("error", "No matching plugins found");
+      errorStack.stack_push("error", "No matching plugins found");
       return null;
     }
     return pluginList;
@@ -87,7 +87,7 @@ export class ChRISPlugin {
   async previousID_get(): Promise<number | null> {
     const previousIDstring: string | null = await chrisContext.ChRISplugin_get();
     if (!previousIDstring) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         "Could not resolve a previous plugin ID context"
       );
@@ -114,7 +114,7 @@ export class ChRISPlugin {
       await client.createPluginInstance(pluginID, combinedParams);
 
     if (!pluginInstance) {
-      errorStack.push("error", "Failed to create plugin instance");
+      errorStack.stack_push("error", "Failed to create plugin instance");
       return null;
     }
     return pluginInstance;
@@ -131,7 +131,7 @@ export class ChRISPlugin {
     const items: Item[] | null =
       chrisResource.resourceItems_buildFromCollection(pluginInstance);
     if (!items) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         "Could not convert pluginInstance resource into dictionary"
       );
@@ -146,13 +146,13 @@ export class ChRISPlugin {
     if ((pluginList = await this.pluginIDs_resolve(plugin)) === null) {
       return null;
     }
-    const pluginID: number = pluginList.hits[0];
+    const pluginID: number = pluginList.hits[0] as number;
     let previousID: number | null;
     if ((previousID = await this.previousID_get()) === null) {
       return null;
     }
 
-    const pluginParams: ChRISObjectParams = CLItoDictionary(params);
+    const pluginParams: ChRISObjectParams = CLI_toDictionary(params);
 
     try {
       const dict: Dictionary | null = this.pluginInstance_toDict(
@@ -161,12 +161,12 @@ export class ChRISPlugin {
       return dict;
     } catch (error: unknown) {
       if (error instanceof Error) {
-        errorStack.push(
+        errorStack.stack_push(
           "error",
           `Error running plugin instance | ${error.message}`
         );
       } else {
-        errorStack.push(
+        errorStack.stack_push(
           "error",
           "An unknown error occurred while running plugin instance"
         );
@@ -181,7 +181,7 @@ export class ChRISPlugin {
   ): Promise<QueryHits | null> {
     const chrisPluginGroup = new ChRISPluginGroup();
     // We rely on lazy initialization of ChRISResourceGroup
-    const searchParams: ListOptions = optionsToParams(searchOptions);
+    const searchParams: ListOptions = options_toParams(searchOptions);
     const searchResults: FilteredResourceData | null =
       await chrisPluginGroup.asset.resources_listAndFilterByOptions(
         searchParams
@@ -189,7 +189,7 @@ export class ChRISPlugin {
     if (!searchResults) {
       return null;
     }
-    const queryHits: QueryHits = extractRecordToQueryHits(
+    const queryHits: QueryHits = record_extract(
       searchResults.tableData,
       dataField
     );
@@ -207,14 +207,14 @@ export class ChRISPlugin {
       "id"
     );
     if (!pluginList) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `A plugin conforming to "${searchable}" was not found.`
       );
       return null;
     }
     if (pluginList.hits.length > 1) {
-      errorStack.push(
+      errorStack.stack_push(
         "warning",
         `Multiple plugins conformed to "${searchable}.`
       );

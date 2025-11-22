@@ -8,7 +8,7 @@
  * @module
  */
 
-import { sessionConfig, initializeConfig, ConnectionConfig } from "../config/config.js";
+import { sessionConfig, config_init, ConnectionConfig } from "../config/config.js";
 import * as path from "path";
 import { QueryHits } from "../utils/keypair.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
@@ -69,7 +69,7 @@ export interface FullContext {
  * @param url - The context URL string to parse.
  * @returns A Promise resolving to a SingleContext object.
  */
-export async function parseChRISContextURL(
+export async function chrisContextURL_parse(
   url: string
 ): Promise<SingleContext> {
   const result: SingleContext = {
@@ -88,8 +88,8 @@ export async function parseChRISContextURL(
     url = parts[1];
   }
 
-  // Extract the base URL
-  const urlMatch = url.match(/(https?:\/\/[^\/]+\/[^?]+)/);
+  // Extract the base URL (everything before '?')
+  const urlMatch = url.match(/(https?:\/\/[^?]+)/);
   if (urlMatch) {
     result.URL = urlMatch[1];
   }
@@ -106,7 +106,7 @@ export async function parseChRISContextURL(
     for (const [key, value] of queryParams.entries()) {
       if (key.includes("plugin")) {
         if (value.includes(":")) {
-          result.plugin = await id_fromSearchable(value);
+          result.plugin = await searchable_toID(value);
         } else {
           result.plugin = value;
         }
@@ -125,13 +125,13 @@ export async function parseChRISContextURL(
  * @param searchable - The string to search for.
  * @returns A Promise resolving to the plugin ID or null.
  */
-async function id_fromSearchable(searchable: string): Promise<string | null> {
+async function searchable_toID(searchable: string): Promise<string | null> {
   const plugin: ChRISPlugin = new ChRISPlugin();
   const ids: QueryHits | null = await plugin.pluginIDs_getFromSearchable(
     searchable
   );
   if (ids) {
-    const id: number = ids.hits[0];
+    const id: number = ids.hits[0] as number;
     const ID: string = id.toString();
     return ID;
   }
@@ -164,13 +164,13 @@ export class ChrisContext {
   constructor() {
     // Initialize is async, so we can't await it in constructor.
     // Consumers should rely on the state being eventually consistent or call methods that ensure initialization.
-    // this.initialize(); // Removed to avoid accessing uninitialized sessionConfig
+    // this.init(); // Removed to avoid accessing uninitialized sessionConfig
   }
 
   /**
    * Initializes the context by loading data from the configuration directory.
    */
-  async initialize(): Promise<void> {
+  async init(): Promise<void> {
     const configDir: string = sessionConfig.connection.configDir;
     const storage = sessionConfig.connection.storage;
 
@@ -187,8 +187,8 @@ export class ChrisContext {
       }
     }
 
-    this.fullContext.currentUser = await sessionConfig.connection.loadLastUser();
-    const currentURL: string | null = await sessionConfig.connection.loadChrisURL();
+    this.fullContext.currentUser = await sessionConfig.connection.lastUser_load();
+    const currentURL: string | null = await sessionConfig.connection.chrisURL_load();
     this.fullContext.currentURL = currentURL;
 
     for (const user of users) {
@@ -216,7 +216,7 @@ export class ChrisContext {
       for (const urlDir of urlDirs) {
         let url: string = (
           sessionConfig.connection as ConnectionConfig
-        ).dirToUri(urlDir);
+        ).dir_toUri(urlDir);
         
         this.fullContext.users[user].urls[url] = {
           folder: await storage.read(path.join(userDir, urlDir, sessionConfig.cwdFile)),
@@ -232,44 +232,48 @@ export class ChrisContext {
     }
   }
 
-  getFullContext(): FullContext {
+  /**
+   * Get the full context object.
+   * @returns The full context.
+   */
+  fullContext_get(): FullContext {
     return this.fullContext;
   }
 
   async ChRISURL_get(): Promise<string | null> {
-    return sessionConfig.connection.loadChrisURL();
+    return sessionConfig.connection.chrisURL_load();
   }
 
   async ChRISuser_get(): Promise<string | null> {
-    return sessionConfig.connection.loadLastUser();
+    return sessionConfig.connection.lastUser_load();
   }
 
   async ChRISfolder_get(): Promise<string | null> {
-    return sessionConfig.getPathContext();
+    return sessionConfig.pathContext_get();
   }
 
   async ChRISfeed_get(): Promise<string | null> {
-    return sessionConfig.getFeedContext();
+    return sessionConfig.feedContext_get();
   }
 
   async ChRISfolder_set(path: string): Promise<boolean> {
-    return sessionConfig.setPathContext(path);
+    return sessionConfig.pathContext_set(path);
   }
 
   async ChRISfeed_set(feedID: string): Promise<boolean> {
-    return sessionConfig.setFeedContext(feedID);
+    return sessionConfig.feedContext_set(feedID);
   }
 
   async ChRISplugin_set(pluginID: string): Promise<boolean> {
-    return sessionConfig.setPluginContext(pluginID);
+    return sessionConfig.pluginContext_set(pluginID);
   }
 
   async ChRISplugin_get(): Promise<string | null> {
-    return sessionConfig.getPluginContext();
+    return sessionConfig.pluginContext_get();
   }
 
-  async getFolderpath(): Promise<string | null> {
-    return sessionConfig.getPathContext();
+  async folderpath_get(): Promise<string | null> {
+    return sessionConfig.pathContext_get();
   }
 
   async currentContext_update(): Promise<SingleContext> {
@@ -281,7 +285,12 @@ export class ChrisContext {
     return this._singleContext;
   }
 
-  async getCurrent(context: Context): Promise<string | null> {
+  /**
+   * Get the current value for a specific context type.
+   * @param context - The context type to retrieve.
+   * @returns The current context value or null.
+   */
+  async current_get(context: Context): Promise<string | null> {
     await this.currentContext_update();
     switch (context) {
       case Context.ChRISURL:
@@ -298,17 +307,23 @@ export class ChrisContext {
     return null;
   }
 
-  async setCurrent(context: Context, value: string): Promise<boolean> {
+  /**
+   * Set the value for a specific context type.
+   * @param context - The context type to set.
+   * @param value - The value to set.
+   * @returns True on success, false on failure.
+   */
+  async current_set(context: Context, value: string): Promise<boolean> {
     let status: boolean = false;
     await this.currentContext_update();
     switch (context) {
       case Context.ChRISuser:
         this._singleContext.user = value;
-        status = await sessionConfig.connection.saveLastUser(value);
+        status = await sessionConfig.connection.lastUser_save(value);
         break;
       case Context.ChRISURL:
         this._singleContext.URL = value;
-        status = await sessionConfig.connection.saveChrisURL(value);
+        status = await sessionConfig.connection.chrisURL_save(value);
         break;
       case Context.ChRISfolder:
         this._singleContext.folder = value;
@@ -323,10 +338,13 @@ export class ChrisContext {
         status = await this.ChRISplugin_set(value);
         break;
     }
-    await sessionConfig.connection.initialize();
-    await sessionConfig.initialize();
+    await sessionConfig.connection.init();
+    await sessionConfig.init();
     return status;
   }
 }
 
+/**
+ * Global ChRIS context instance.
+ */
 export const chrisContext: ChrisContext = new ChrisContext();

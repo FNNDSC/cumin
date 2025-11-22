@@ -10,9 +10,9 @@
  */
 
 import Client from "@fnndsc/chrisapi";
-import { ConnectionConfig, initializeConfig, connectionConfig } from "../config/config.js";
+import { ConnectionConfig, config_init, connectionConfig } from "../config/config.js";
 import {
-  parseChRISContextURL,
+  chrisContextURL_parse,
   SingleContext,
   Context,
   chrisContext,
@@ -83,7 +83,7 @@ export class ChRISConnection {
     this.user = user;
     this.chrisURL = url;
     console.log(`Connecting to ${url} with user ${user}`);
-    await this.config.setContext(user, url);
+    await this.config.context_set(user, url);
     this.tokenFile = this.config.tokenFilepath;
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
@@ -127,7 +127,7 @@ export class ChRISConnection {
   async context_set(context: string): Promise<boolean> {
     const currentContext: SingleContext = await chrisContext.currentContext_update(); // Await this call
     context = contextString_check(context);
-    const parsedContext: SingleContext = await parseChRISContextURL(context);
+    const parsedContext: SingleContext = await chrisContextURL_parse(context);
 
     let status: boolean = true;
     let needsRefresh: boolean = false;
@@ -135,10 +135,10 @@ export class ChRISConnection {
     if (parsedContext.user) {
       status =
         status &&
-        (await chrisContext.setCurrent(Context.ChRISuser, parsedContext.user)); // Await this call
+        (await chrisContext.current_set(Context.ChRISuser, parsedContext.user)); // Await this call
       this.user = parsedContext.user;
       needsRefresh = true;
-      await this.config.setContext(
+      await this.config.context_set(
         parsedContext.user,
         parsedContext.URL || undefined
       );
@@ -146,29 +146,29 @@ export class ChRISConnection {
 
     if (parsedContext.URL) {
       status =
-        status && (await chrisContext.setCurrent(Context.ChRISURL, parsedContext.URL)); // Await this call
+        status && (await chrisContext.current_set(Context.ChRISURL, parsedContext.URL)); // Await this call
       this.chrisURL = parsedContext.URL;
       this.user = currentContext.user;
       needsRefresh = true;
-      await this.config.setContext(this.user || "", parsedContext.URL);
+      await this.config.context_set(this.user || "", parsedContext.URL);
     }
 
     if (parsedContext.folder) {
       status =
         status &&
-        (await chrisContext.setCurrent(Context.ChRISfolder, parsedContext.folder)); // Await this call
+        (await chrisContext.current_set(Context.ChRISfolder, parsedContext.folder)); // Await this call
     }
 
     if (parsedContext.feed) {
       status =
         status &&
-        (await chrisContext.setCurrent(Context.ChRISfeed, parsedContext.feed)); // Await this call
+        (await chrisContext.current_set(Context.ChRISfeed, parsedContext.feed)); // Await this call
     }
 
     if (parsedContext.plugin) {
       status =
         status &&
-        (await chrisContext.setCurrent(Context.ChRISplugin, parsedContext.plugin)); // Await this call
+        (await chrisContext.current_set(Context.ChRISplugin, parsedContext.plugin)); // Await this call
     }
 
     // Refresh the client with the new context
@@ -197,7 +197,7 @@ export class ChRISConnection {
    */
   async chrisURL_get(): Promise<string | null> {
     if (!this.chrisURL) {
-      this.chrisURL = await this.config.loadChrisURL();
+      this.chrisURL = await this.config.chrisURL_load();
     }
     return this.chrisURL;
   }
@@ -292,7 +292,7 @@ export let chrisConnection: ChRISConnection;
  * Initializes the global ChRISConnection instance.
  * @param storageProvider - The storage provider to use for the connection.
  */
-export async function initializeChrisConnection(storageProvider: IStorageProvider): Promise<void> {
-  await initializeConfig(storageProvider); // This sets the global connectionConfig
+export async function chrisConnection_init(storageProvider: IStorageProvider): Promise<void> {
+  await config_init(storageProvider); // This sets the global connectionConfig
   chrisConnection = new ChRISConnection(connectionConfig, storageProvider);
 }

@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 // import { chrisFileBrowser_create } from "./filebrowser/chrisFileBrowser";
 import { ChRISinode } from "./filebrowser/chrisFiles";
-import { chrisConnection, initializeChrisConnection } from "./connect/chrisConnection";
+import { chrisConnection, chrisConnection_init } from "./connect/chrisConnection";
 import { connectionConfig } from "./config/config";
 import { NodeStorageProvider } from "./io/node_io.js";
 
@@ -20,9 +20,13 @@ const packageJson = JSON.parse(
 );
 const version = packageJson.version;
 
+/**
+ * Main entry point for the cumin CLI.
+ * Initializes the connection and prints version/config info.
+ */
 async function main() {
   const nodeStorageProvider = new NodeStorageProvider();
-  await initializeChrisConnection(nodeStorageProvider);
+  await chrisConnection_init(nodeStorageProvider);
 
   console.log(figlet.textSync("cumin"));
   console.log(" -- CUbe Management INterface --");

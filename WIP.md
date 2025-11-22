@@ -23,6 +23,10 @@
     -   `src/filebrowser/chrisFiles.ts`
     -   `src/activities/chrisActivity.ts`
     -   `src/plugins/chrisPlugins.ts`
+    -   `src/error/errorStack.ts`
+    -   `src/utils/keypair.ts`
+    -   `src/config/config.ts`
+    -   `src/context/chrisContext.ts`
 
 ## Completed Tasks
 -   [x] Define `IStorageProvider` interface.
@@ -31,12 +35,15 @@
 -   [x] Refactor `ChRISConnection` (async, storage, RPN).
 -   [x] Refactor `ChrisContext` (async, storage, JSDoc).
 -   [x] Refactor `ChrisIO` (async, storage, RPN).
--   [x] Update `chili` entry point.
+-   [x] Refactor remaining `cumin` files for RPN naming and JSDoc (`utils/keypair.ts`, `error/errorStack.ts`, `config/config.ts`, `context/chrisContext.ts`).
+-   [x] Create `BrowserStorageProvider` implementing `IStorageProvider`.
+-   [x] Updated `chili` entry point and other `chili` files to use new `cumin` RPN naming.
 -   [x] Fix compilation errors in `cumin` and `chili`.
 -   [x] Verify `cumin` tests pass.
+-   [x] **Complete Style Guide Enforcement:** Reviewed remaining files in `cumin` and `chili` to ensure full compliance with RPN naming and JSDoc requirements.
+-   [x] Added Jest test suite for `cumin` (`config.ts`, `keypair.ts`, `errorStack.ts`, `io.ts`).
 
 ## Next Steps / To-Do
-1.  **Complete Style Guide Enforcement:** Review remaining files in `cumin` (e.g., `utils/`, `error/`) and all of `chili` to ensure full compliance with RPN naming and JSDoc requirements.
-2.  **Browser Storage Provider:** Create a `BrowserStorageProvider` (implementing `IStorageProvider`) using `localStorage` or `IndexedDB` for the web UI.
-3.  **Chili Logic Extraction:** Further separate CLI-specific logic (presentation) from business logic in `chili` handlers to maximize code sharing with the browser.
-4.  **Build Pipeline:** Ensure `tsc` build outputs correct types and module formats for both Node.js and browser consumption.
+1.  **Build Pipeline:** Ensure `tsc` build outputs correct types and module formats for both Node.js and browser consumption.
+2.  **Resolve Jest fs/promises Mocking in cumin:** Address persistent issues with mocking `fs/promises` in the Jest environment for `NodeStorageProvider` tests.
+3.  **Expand cumin Test Coverage:** Add comprehensive unit tests for `chrisConnection.ts`, `chrisContext.ts`, `chrisFeed.ts`, `chrisFileBrowser.ts`, `chrisFiles.ts`, `chrisIO.ts`, `chrisPluginMetaPlugins.ts`, `chrisPlugins.ts`, `chrisEmbeddedResourceGroup.ts`, `chrisObjContext.ts`, `chrisResourceGroup.ts`, and `chrisResources.ts`.

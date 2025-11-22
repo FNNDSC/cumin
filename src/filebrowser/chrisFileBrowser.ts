@@ -12,11 +12,17 @@ import { FileBrowserFolder } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 import { ChRISResource } from "../resources/chrisResources.js";
 
+/**
+ * Interface for boolean operations with a descriptive message.
+ */
 export interface BoolString {
   status: boolean;
   message: string;
 }
 
+/**
+ * Enum defining the types of ChRIS browsers.
+ */
 export enum BrowserType {
   Files = "Files",
   Links = "Links",
@@ -35,7 +41,7 @@ export class ChRISFileBrowser {
   constructor(variant: BrowserType = BrowserType.Files, chrisObj: FileBrowserFolder) {
     this._chrisFileBrowserFolder = chrisObj;
     this._resource = new ChRISResource();
-    this._bindOp = this.getMethod_bind(variant);
+    this._bindOp = this.method_bind(variant);
   }
 
   /**
@@ -49,11 +55,19 @@ export class ChRISFileBrowser {
     return this._client;
   }
 
-  get bindOp(): BoolString {
+  /**
+   * Gets the status of the binding operation.
+   * @returns The binding operation status.
+   */
+  get bindOp_get(): BoolString {
     return this._bindOp;
   }
 
-  getFiles_bind(): BoolString {
+  /**
+   * Binds the `getFiles` method to the ChRIS resource.
+   * @returns The status of the binding operation.
+   */
+  files_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getFiles not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
       this._resource.resource_bindGetMethodToObj(
@@ -67,7 +81,11 @@ export class ChRISFileBrowser {
     return bindOp;
   }
 
-  getLinks_bind(): BoolString {
+  /**
+   * Binds the `getLinkFiles` method to the ChRIS resource.
+   * @returns The status of the binding operation.
+   */
+  links_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getLinks not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
       this._resource.resource_bindGetMethodToObj(
@@ -81,7 +99,11 @@ export class ChRISFileBrowser {
     return bindOp;
   }
 
-  getDirs_bind(): BoolString {
+  /**
+   * Binds the `getChildren` (dirs) method to the ChRIS resource.
+   * @returns The status of the binding operation.
+   */
+  dirs_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getDirs not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
       this._resource.resource_bindGetMethodToObj(
@@ -95,7 +117,12 @@ export class ChRISFileBrowser {
     return bindOp;
   }
 
-  getMethod_bind(variant: BrowserType): BoolString {
+  /**
+   * Binds the appropriate method based on the browser variant.
+   * @param variant - The browser type (Files, Links, Dirs).
+   * @returns The status of the binding operation.
+   */
+  method_bind(variant: BrowserType): BoolString {
     let bindOp: BoolString = { "status": false, "message": ""};
     if (!this._resource || !this._chrisFileBrowserFolder) {
       bindOp.message = "ChRISFileBrowesr resource or fileBrowserFolder is null";
@@ -104,23 +131,31 @@ export class ChRISFileBrowser {
     bindOp.status = true;
     switch(variant) {
       case BrowserType.Files:
-        bindOp = this.getFiles_bind();
+        bindOp = this.files_bind();
         break;
       case BrowserType.Links:
-        bindOp = this.getLinks_bind();
+        bindOp = this.links_bind();
         break;
       case BrowserType.Dirs:
-        bindOp = this.getDirs_bind();
+        bindOp = this.dirs_bind();
         break;
     }
     return bindOp;
   }
 
-  get resource(): ChRISResource | null {
+  /**
+   * Gets the associated ChRIS resource.
+   * @returns The ChRISResource instance or null.
+   */
+  get resource_get(): ChRISResource | null {
     return this._resource;
   }
 
-  get chrisFileBrowserFolder(): FileBrowserFolder | null {
+  /**
+   * Gets the underlying FileBrowserFolder object.
+   * @returns The FileBrowserFolder instance or null.
+   */
+  get fileBrowserFolder_get(): FileBrowserFolder | null {
     return this._chrisFileBrowserFolder;
   }
 }

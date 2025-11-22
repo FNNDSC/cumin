@@ -20,7 +20,7 @@ import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
 import {
   QueryHits,
-  applyKeyPairParams,
+  keyPairParams_apply,
   ChRISObjectParams,
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";
@@ -57,9 +57,9 @@ export class ChRISFeed {
 
   error_parse(error: unknown, activity?: string): null {
     if (error instanceof Error) {
-      errorStack.push("error", `Error ${activity}: ${error.message}`);
+      errorStack.stack_push("error", `Error ${activity}: ${error.message}`);
     } else {
-      errorStack.push("error", `An unknown error occurred while ${activity}`);
+      errorStack.stack_push("error", `An unknown error occurred while ${activity}`);
     }
     return null;
   }
@@ -104,16 +104,16 @@ export class ChRISFeed {
         "pl-dircopy"
       );
       if (!pluginList) {
-        errorStack.push(
+        errorStack.stack_push(
           "error",
           "pl-dircopy was not found! No feeds can be created."
         );
         return null;
       }
-      const pluginID: number = pluginList.hits[0];
-      const createParams: Record<string, string> = applyKeyPairParams(
+      const pluginID: number = pluginList.hits[0] as number;
+      const createParams: Record<string, string> = keyPairParams_apply(
         { dir: dirs },
-        feedParams.params
+        feedParams.params as string
       );
       pluginInstance = await client.createPluginInstance(
         pluginID,

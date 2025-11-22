@@ -1,40 +1,40 @@
 # Cumin 🌿
 
-`cumin` is a backend utility library that provides a high-level, object-oriented interface for interacting with the ChRIS API. It is designed to run in a Node.js environment and is the data and state management backend for the [`chili`](../chili/README.md) CLI.
+`cumin` is the infrastructure and state management layer of the ChRIS interface ecosystem. It is a Node.js backend library that handles the "dirty work" of connecting to ChRIS, managing authentication tokens, and persisting user sessions.
 
 ## Abstract
 
-`cumin` simplifies interactions with a ChRIS instance by abstracting away the direct complexities of the underlying REST API. It provides object-oriented wrappers for ChRIS resources (like Feeds, Plugins, and Files) and manages connection state, authentication credentials, and local context persistence using the filesystem.
+`cumin` abstracts the ChRIS REST API into a stateful, object-oriented environment. It is responsible for:
+1.  **Connection Management**: Handling authentication, token storage, and client initialization.
+2.  **Context Persistence**: Implementing the "Context" engine that remembers the active User, CUBE URL, and Working Directory across sessions.
+3.  **Resource Factories**: Providing the `objContext_create` factory that dynamically resolves API resources (like "Plugins" or "Files") based on the current context.
 
 ## Role in the Ecosystem
 
-This library is intended to be the "backend" for a client application running in a Node.js environment. It is **not suitable for browser use** due to its direct reliance on the Node.js runtime and filesystem for its operations. The `chili` CLI tool is the primary consumer of this library.
+In the "Sandwich Model" architecture, `cumin` is the bottom layer (just above the raw API client).
+
+-   **Consumers**: It is primarily consumed by [`salsa`](../salsa/README.md) (to execute logic) and [`chili`](../chili/README.md) (to manage CLI state).
+-   **Environment**: It is designed for Node.js environments (relying on the local filesystem for state persistence).
 
 ## Core Features
 
--   Object-oriented wrappers for major ChRIS resources.
--   Handles authentication and session management.
--   Persists connection details and application context to the local filesystem.
--   Provides helper methods for common operations like searching, listing, and resource creation.
-
-### Coding Style
-
-This project adheres to a specific set of TypeScript coding standards outlined in the main style guide. Before contributing, please review the [TypeScript Style Guide](TYPESCRIPT-STYLE-GUIDE.md).
+-   **`ChrisContext`**: The state machine for multi-tenant, multi-backend sessions.
+-   **`ChRISConnection`**: Wrapper for the low-level API client.
+-   **`keypair.ts`**: The parser for "Searchable" strings (e.g., `name:demo, version:1.0`).
 
 ## Developer Setup
 
-To build the `cumin` library from source, follow these steps:
+To build the `cumin` library from source:
 
 1.  **Install dependencies:**
     ```bash
     npm install
     ```
 
-2.  **Compile the TypeScript code:**
+2.  **Compile:**
     ```bash
     npm run build
     ```
-This will compile the source code from `src/` into the `dist/` directory.
 
 ---
 _-30-_

@@ -19,6 +19,12 @@ export * from "./io/io";
 export * from "./io/node_io";
 export * from "./utils/keypair";
 
+/**
+ * Gets the ChRIS version from the given URL.
+ *
+ * @param url - The URL of the ChRIS instance.
+ * @returns A Promise resolving to the version string.
+ */
 export async function getChrisVersion(url: string): Promise<string> {
   const version = "1.0.0";
   // const client = Client.getClient(url);
@@ -26,7 +32,9 @@ export async function getChrisVersion(url: string): Promise<string> {
   return version;
 }
 
-// Main function
+/**
+ * Main entry point for the module when run directly.
+ */
 async function main() {
   console.log("In main...");
 }

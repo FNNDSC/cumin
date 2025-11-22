@@ -11,15 +11,24 @@ import Client from "@fnndsc/chrisapi";
 import { ListResource, Resource, ItemResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 
+/**
+ * A simple record with string keys and any values.
+ */
 export interface SimpleRecord {
   [key: string]: any;
 }
 
+/**
+ * Options for listing resources, including pagination.
+ */
 export interface ListOptions extends SimpleRecord {
   limit?: number;
   offset?: number;
 }
 
+/**
+ * Represents an item in a resource collection.
+ */
 export interface Item {
   data: Array<{ name: string; value: any }>;
   href: string;
@@ -31,21 +40,33 @@ interface ResourcesFromOptions {
   options?: ListOptions | null;
 }
 
+/**
+ * Contains items and the fields available for them.
+ */
 export interface ResourceFieldsPerItem {
   items: Item[];
   fields: string[];
 }
 
+/**
+ * Contains resources, items, options, and selected fields.
+ */
 export interface ResourcesByFields extends ResourcesFromOptions {
   items: Item[] | null;
   fields: string[];
 }
 
+/**
+ * Contains data filtered for table display and selected fields.
+ */
 export interface FilteredResourceData {
   tableData: Record<string, any>[];
   selectedFields: string[];
 }
 
+/**
+ * A dictionary with string keys and primitive values.
+ */
 export interface Dictionary {
   [key: string]: string | number | boolean;
 }

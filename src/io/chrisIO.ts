@@ -45,7 +45,7 @@ export class ChrisIO {
    * Initializes the ChrisIO instance by creating a file browser folder.
    * @returns A Promise resolving to true on success, false on failure, or null if client is missing.
    */
-  async initialize(): Promise<boolean | null> {
+  async init(): Promise<boolean | null> {
     const client = await this.client_get();
     if (!client) {
       return null;
@@ -55,7 +55,7 @@ export class ChrisIO {
         await client.createFileBrowserFolder({ path: this.chrisFolder });
       return true;
     } catch (error: unknown) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Failed to create FileBrowserFolder: 
         ${error instanceof Error ? error.message : String(error)}`
@@ -103,7 +103,7 @@ export class ChrisIO {
         throw new Error(`Unexpected blob type: ${typeof blob}`);
       }
     } catch (error: unknown) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Failed to download file with ID ${fileId}: 
         ${error instanceof Error ? error.message : String(error)}`
@@ -135,7 +135,7 @@ export class ChrisIO {
       await client.uploadFile(data, uploadFileObj);
       return true;
     } catch (error: unknown) {
-      errorStack.push(
+      errorStack.stack_push(
         "error",
         `Failed to upload file ${chrisPath}:
         ${error instanceof Error ? error.message : String(error)}`
@@ -169,4 +169,7 @@ export class ChrisIO {
   }
 }
 
+/**
+ * Global ChRIS IO instance.
+ */
 export const chrisIO: ChrisIO = new ChrisIO();
