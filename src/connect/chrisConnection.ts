@@ -54,19 +54,30 @@ function contextString_check(context: string): string {
  */
 export class ChRISConnection {
   private authToken: string | null = null;
-  private tokenFile: string;
+  private tokenFile!: string;
   private user: string | null = null;
   private chrisURL: string | null = null;
   private client: Client | null = null;
-  private config: ConnectionConfig;
-  private storageProvider: IStorageProvider;
+  private config!: ConnectionConfig;
+  private storageProvider!: IStorageProvider;
 
   /**
    * Constructs a new ChRISConnection instance.
    * @param config - The connection configuration object.
    * @param storageProvider - The storage provider for persistence.
    */
-  constructor(config: ConnectionConfig, storageProvider: IStorageProvider) {
+  constructor(config?: ConnectionConfig, storageProvider?: IStorageProvider) {
+    if (config && storageProvider) {
+      this.init(config, storageProvider);
+    }
+  }
+
+  /**
+   * Initializes the connection with configuration and storage provider.
+   * @param config - The connection configuration object.
+   * @param storageProvider - The storage provider for persistence.
+   */
+  init(config: ConnectionConfig, storageProvider: IStorageProvider) {
     this.config = config;
     this.storageProvider = storageProvider;
     this.tokenFile = this.config.tokenFilepath;
@@ -284,9 +295,9 @@ export class ChRISConnection {
 }
 
 /**
- * Global instance of ChRISConnection, initialized asynchronously.
+ * Global instance of ChRISConnection, initialized as a constant singleton.
  */
-export let chrisConnection: ChRISConnection;
+export const chrisConnection: ChRISConnection = new ChRISConnection();
 
 /**
  * Initializes the global ChRISConnection instance.
@@ -294,5 +305,5 @@ export let chrisConnection: ChRISConnection;
  */
 export async function chrisConnection_init(storageProvider: IStorageProvider): Promise<void> {
   await config_init(storageProvider); // This sets the global connectionConfig
-  chrisConnection = new ChRISConnection(connectionConfig, storageProvider);
+  chrisConnection.init(connectionConfig, storageProvider);
 }
