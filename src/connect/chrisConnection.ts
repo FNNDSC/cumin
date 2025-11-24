@@ -303,7 +303,8 @@ export const chrisConnection: ChRISConnection = new ChRISConnection();
  * Initializes the global ChRISConnection instance.
  * @param storageProvider - The storage provider to use for the connection.
  */
-export async function chrisConnection_init(storageProvider: IStorageProvider): Promise<void> {
+export async function chrisConnection_init(storageProvider: IStorageProvider): Promise<ChRISConnection> {
   await config_init(storageProvider); // This sets the global connectionConfig
-  chrisConnection.init(connectionConfig, storageProvider);
+  chrisConnection = new ChRISConnection(connectionConfig, storageProvider);
+  return chrisConnection;
 }

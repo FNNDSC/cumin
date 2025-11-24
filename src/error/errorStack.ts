@@ -106,20 +106,15 @@ class ErrorStack {
   }
 
   /**
-   * Get all messages in the stack.
-   *
-   * @returns A copy of the current stack.
-   */
-  public all_get(): StackMessage[] {
-    return [...this.stack];
-  }
-
-  /**
    * Search the stack for messages containing a substring.
    *
    * @param substring - The string to search for (case-insensitive).
    * @returns An array of formatted strings matching the search.
    */
+  public stack_getAll(): StackMessage[] {
+    return [...this.stack];
+  }
+
   public stack_search(substring: string): string[] {
     return this.stack
       .filter((item) =>
@@ -164,7 +159,6 @@ class ErrorStack {
     this.stack = [];
   }
 
-  /**
    * Clear all messages of a specific type from the stack.
    *
    * @param type - The message type to clear.
@@ -189,6 +183,11 @@ class ErrorStack {
    * @returns True if messages of the given type exist, false otherwise.
    */
   public messagesOfType_checkExistence(type: MessageType): boolean {
+  public messages_has(): boolean {
+    return this.stack.length > 0;
+  }
+
+  public messagesOfType_has(type: MessageType): boolean {
     return this.stack.some((item) => item.type === type);
   }
 }

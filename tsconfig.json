@@ -11,7 +11,7 @@
     "typeRoots": ["./node_modules/@types", "./types"],
     "skipLibCheck": true,
     "declaration": true,
-    "declarationDir": "./types",
+    "declarationDir": "./dist",
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {

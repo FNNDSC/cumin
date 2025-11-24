@@ -39,7 +39,7 @@ export interface ClIarguments {
  * @param cliString - The CLI argument string.
  * @returns A dictionary of parsed arguments.
  */
-export function CLI_toDictionary(cliString: string): ClIarguments {
+export function dictionary_fromCLI(cliString: string): ClIarguments {
   const result: ClIarguments = {};
   // Split the string by spaces, but keep quoted sections together
   const args = cliString.match(/('.*?'|".*?"|\S+)/g) || [];
@@ -91,7 +91,7 @@ export function keyPairString_parse(
  * @param searchString - Optional search string to parse and merge.
  * @returns The merged parameters object.
  */
-export function keyPairParams_apply<T extends Record<string, unknown>>(
+export function keyPairParams_apply<T extends Record<string, any>>(
   params: T,
   searchString?: string
 ): T {
@@ -130,7 +130,7 @@ function options_reduce(options: ChRISElementsGet): ListOptions {
  * @param keyPairField - The field name containing the key-pair string.
  * @returns Formatted ListOptions.
  */
-export function options_toParams(
+export function params_fromOptions(
   options: ChRISElementsGet,
   keyPairField: keyof ChRISElementsGet = "search"
 ): ListOptions {

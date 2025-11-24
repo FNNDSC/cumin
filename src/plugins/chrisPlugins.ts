@@ -22,11 +22,11 @@ import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import {
   ChRISElementsGet,
   QueryHits,
-  options_toParams,
+  params_fromOptions,
   record_extract,
   ChRISObjectParams,
-  keyPairString_parse,
-  CLI_toDictionary,
+  keyPairString_toJSON,
+  dictionary_fromCLI,
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";
 
@@ -152,8 +152,7 @@ export class ChRISPlugin {
       return null;
     }
 
-    const pluginParams: ChRISObjectParams = CLI_toDictionary(params);
-
+    const pluginParams: ChRISObjectParams = dictionary_fromCLI(params);
     try {
       const dict: Dictionary | null = this.pluginInstance_toDict(
         await this.plugin_runOnCUBE(pluginID, previousID, pluginParams)
@@ -181,7 +180,7 @@ export class ChRISPlugin {
   ): Promise<QueryHits | null> {
     const chrisPluginGroup = new ChRISPluginGroup();
     // We rely on lazy initialization of ChRISResourceGroup
-    const searchParams: ListOptions = options_toParams(searchOptions);
+    const searchParams: ListOptions = params_fromOptions(searchOptions);
     const searchResults: FilteredResourceData | null =
       await chrisPluginGroup.asset.resources_listAndFilterByOptions(
         searchParams

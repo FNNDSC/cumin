@@ -116,6 +116,8 @@ export class ChRISEmbeddedResourceGroup<
       };
       return new ChRISEmbeddedResourceGroup<T>(params);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      //console.error(`DEBUG: create failed for ${resourceName}:`, errorMessage); // Added
       errorStack.stack_push(
         "error",
         `Error: ${context} seems invalid for resource ${resourceName}.`
@@ -168,6 +170,7 @@ export class ChRISEmbeddedResourceGroup<
     } catch (error: unknown) {
       const errorMessage: string =
         error instanceof Error ? error.message : String(error);
+      // console.error("DEBUG: initializeContext failed:", errorMessage); // Added for debugging
       errorStack.stack_push(
         "error",
         `Failed to get contextObject of type ${contextSpec.type} for value ${contextSpec.value}: ${errorMessage}`
