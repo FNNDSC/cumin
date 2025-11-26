@@ -1,4 +1,6 @@
 node_modules/
-package-lock.json
 dist/
+coverage/
 types/
+*.log
+.DS_Store
