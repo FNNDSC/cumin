@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.17% </span>
+                <span class="strong">85.36% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>34/39</span>
+                <span class='fraction'>35/41</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.95% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>20/23</span>
+                <span class='fraction'>20/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.48% </span>
+                <span class="strong">84.61% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>32/37</span>
+                <span class='fraction'>33/39</span>
             </div>
         
             
@@ -271,7 +271,12 @@
 <a name='L206'></a><a href='#L206'>206</a>
 <a name='L207'></a><a href='#L207'>207</a>
 <a name='L208'></a><a href='#L208'>208</a>
-<a name='L209'></a><a href='#L209'>209</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -384,13 +389,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -478,6 +478,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// errorStack.ts
 &nbsp;
@@ -587,20 +597,15 @@ class ErrorStack {
   }
 &nbsp;
   /**
-   * Get all messages in the stack.
-   *
-   * @returns A copy of the current stack.
-   */
-  public all_get(): StackMessage[] {
-    return [...this.stack];
-  }
-&nbsp;
-  /**
    * Search the stack for messages containing a substring.
    *
    * @param substring - The string to search for (case-insensitive).
    * @returns An array of formatted strings matching the search.
    */
+  public stack_getAll(): StackMessage[] {
+    return [...this.stack];
+  }
+&nbsp;
   public stack_search(substring: string): string[] {
     return this.stack
       .filter((item) =&gt;
@@ -659,7 +664,7 @@ class ErrorStack {
    *
    * @returns True if the stack is not empty, false otherwise.
    */
-  public messages_checkExistence(): boolean {
+  public messages_has(): boolean {
     return this.stack.length &gt; 0;
   }
 &nbsp;
@@ -669,7 +674,7 @@ class ErrorStack {
    * @param type - The message type to check for.
    * @returns True if messages of the given type exist, false otherwise.
    */
-  public messagesOfType_checkExistence(type: MessageType): boolean {
+  public messagesOfType_has(type: MessageType): boolean {
     return this.stack.some((item) =&gt; item.type === type);
   }
 }
@@ -687,6 +692,16 @@ export const errorStack = ErrorStack.instance_get({ functionNamePadWidth: 40 });
 export function errorStack_configure(options: ErrorStackOptions): void {
   ErrorStack.instance_get(options);
 }
+&nbsp;
+/**
+ * Get all messages of a specific type from the global error stack.
+ *
+ * @param type - The message type to filter by.
+ * @returns An array of message strings.
+ */
+export function <span class="fstat-no" title="function not covered" >errorStack_getAllOfType(</span>type: MessageType): string[] {
+<span class="cstat-no" title="statement not covered" >  return errorStack.allOfType_get(type);</span>
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -694,7 +709,7 @@ export function errorStack_configure(options: ErrorStackOptions): void {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-23T19:06:31.489Z
+                at 2025-11-25T22:31:26.306Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

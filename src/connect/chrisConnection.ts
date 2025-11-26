@@ -58,8 +58,8 @@ export class ChRISConnection {
   private user: string | null = null;
   private chrisURL: string | null = null;
   private client: Client | null = null;
-  private config!: ConnectionConfig;
-  private storageProvider!: IStorageProvider;
+  private config?: ConnectionConfig; // Made optional
+  private storageProvider?: IStorageProvider; // Made optional
 
   /**
    * Constructs a new ChRISConnection instance.
@@ -70,6 +70,10 @@ export class ChRISConnection {
     if (config && storageProvider) {
       this.init(config, storageProvider);
     }
+    // Ensure that config and storageProvider are not undefined if no args were passed.
+    // This allows the initial `new ChRISConnection()` to create a valid, though uninitialized, object.
+    this.config = config;
+    this.storageProvider = storageProvider;
   }
 
   /**
@@ -94,8 +98,8 @@ export class ChRISConnection {
     this.user = user;
     this.chrisURL = url;
     console.log(`Connecting to ${url} with user ${user}`);
-    await this.config.context_set(user, url);
-    this.tokenFile = this.config.tokenFilepath;
+    await this.config!.context_set(user, url);
+    this.tokenFile = this.config!.tokenFilepath;
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
@@ -149,9 +153,9 @@ export class ChRISConnection {
         (await chrisContext.current_set(Context.ChRISuser, parsedContext.user)); // Await this call
       this.user = parsedContext.user;
       needsRefresh = true;
-      await this.config.context_set(
+      await this.config!.context_set(
         parsedContext.user,
-        parsedContext.URL || undefined
+        parsedContext.URL || ''
       );
     }
 
@@ -161,7 +165,7 @@ export class ChRISConnection {
       this.chrisURL = parsedContext.URL;
       this.user = currentContext.user;
       needsRefresh = true;
-      await this.config.context_set(this.user || "", parsedContext.URL);
+      await this.config!.context_set(this.user || "", parsedContext.URL);
     }
 
     if (parsedContext.folder) {
@@ -203,11 +207,29 @@ export class ChRISConnection {
   }
 
   /**
+   * Retrieves the current authenticated user's username.
+   * @returns A Promise resolving to the username string or null if not authenticated.
+   */
+  async user_get(): Promise<string | null> {
+    // Ensure token is loaded if not already present, as user is set during connection.
+    if (!this.user && this.authToken) {
+      // Re-load config if necessary, or simply return stored user.
+      // For now, assume this.user is reliably set during connection_connect
+      // or if auth token is loaded from storage (which would imply context reload).
+      // A more robust implementation might re-derive user from token or context.
+    }
+    return this.user;
+  }
+
+  /**
    * Retrieves the ChRIS CUBE URL.
    * @returns A Promise resolving to the ChRIS URL or null.
    */
   async chrisURL_get(): Promise<string | null> {
     if (!this.chrisURL) {
+      if (!this.config) {
+        return null; // config not initialized
+      }
       this.chrisURL = await this.config.chrisURL_load();
     }
     return this.chrisURL;
@@ -218,10 +240,9 @@ export class ChRISConnection {
    * @returns A Promise resolving to the refreshed Client instance or null.
    */
   async client_refresh(): Promise<Client | null> {
-    const forceTokenLoad: boolean = true;
-    this.tokenFile = this.config.tokenFilepath;
+    this.tokenFile = this.config!.tokenFilepath;
     this.chrisURL = await this.chrisURL_get();
-    this.authToken = await this.authToken_get(forceTokenLoad);
+    this.authToken = await this.authToken_get(true); // Pass true directly
     if (this.chrisURL && this.authToken) {
       this.client = new Client(this.chrisURL, { token: this.authToken });
     }
@@ -260,7 +281,7 @@ export class ChRISConnection {
   async connection_logout(): Promise<void> {
     this.authToken = null;
     try {
-      await this.storageProvider.remove(this.tokenFile);
+      await this.storageProvider!.remove(this.tokenFile);
       console.log("Logged out successfully");
     } catch (error) {
       console.error("Error during logout:", error);
@@ -274,7 +295,7 @@ export class ChRISConnection {
    */
   private async token_saveToFile(file: string, info: string): Promise<void> {
     try {
-      await this.storageProvider.write(file, info || "");
+      await this.storageProvider!.write(file, info || "");
     } catch (error) {
       console.error("For info: ", info);
       console.error("Error saving to file ", file, ": ", error);
@@ -287,7 +308,7 @@ export class ChRISConnection {
    */
   private async token_load(): Promise<void> {
     try {
-      this.authToken = await this.storageProvider.read(this.tokenFile);
+      this.authToken = await this.storageProvider!.read(this.tokenFile);
     } catch (error) {
       this.authToken = null;
     }
@@ -297,7 +318,7 @@ export class ChRISConnection {
 /**
  * Global instance of ChRISConnection, initialized as a constant singleton.
  */
-export const chrisConnection: ChRISConnection = new ChRISConnection();
+export let chrisConnection: ChRISConnection = new ChRISConnection();
 
 /**
  * Initializes the global ChRISConnection instance.

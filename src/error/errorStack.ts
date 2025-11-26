@@ -159,6 +159,7 @@ class ErrorStack {
     this.stack = [];
   }
 
+  /**
    * Clear all messages of a specific type from the stack.
    *
    * @param type - The message type to clear.
@@ -172,7 +173,7 @@ class ErrorStack {
    *
    * @returns True if the stack is not empty, false otherwise.
    */
-  public messages_checkExistence(): boolean {
+  public messages_has(): boolean {
     return this.stack.length > 0;
   }
 
@@ -182,11 +183,6 @@ class ErrorStack {
    * @param type - The message type to check for.
    * @returns True if messages of the given type exist, false otherwise.
    */
-  public messagesOfType_checkExistence(type: MessageType): boolean {
-  public messages_has(): boolean {
-    return this.stack.length > 0;
-  }
-
   public messagesOfType_has(type: MessageType): boolean {
     return this.stack.some((item) => item.type === type);
   }
@@ -204,4 +200,14 @@ export const errorStack = ErrorStack.instance_get({ functionNamePadWidth: 40 });
  */
 export function errorStack_configure(options: ErrorStackOptions): void {
   ErrorStack.instance_get(options);
+}
+
+/**
+ * Get all messages of a specific type from the global error stack.
+ *
+ * @param type - The message type to filter by.
+ * @returns An array of message strings.
+ */
+export function errorStack_getAllOfType(type: MessageType): string[] {
+  return errorStack.allOfType_get(type);
 }

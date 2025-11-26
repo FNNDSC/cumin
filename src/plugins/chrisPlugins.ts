@@ -25,7 +25,6 @@ import {
   params_fromOptions,
   record_extract,
   ChRISObjectParams,
-  keyPairString_toJSON,
   dictionary_fromCLI,
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";

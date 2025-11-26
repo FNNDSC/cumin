@@ -17,7 +17,7 @@ describe('ErrorStack', () => {
 
   it('should push messages with dynamic function name', () => {
     errorStack.stack_push('error', 'Test error message');
-    const allMessages = errorStack.all_get();
+    const allMessages = errorStack.stack_getAll();
     expect(allMessages).toHaveLength(1);
     expect(allMessages[0].type).toBe('error');
     // Expect the message to contain the dynamic function name format
@@ -28,7 +28,7 @@ describe('ErrorStack', () => {
     errorStack.stack_push('error', 'Message to pop');
     const popped = errorStack.stack_pop();
     expect(popped?.message).toContain('Message to pop');
-    expect(errorStack.all_get()).toHaveLength(0);
+    expect(errorStack.stack_getAll()).toHaveLength(0);
   });
 
   it('should return undefined when popping from an empty stack', () => {
@@ -59,7 +59,7 @@ describe('ErrorStack', () => {
   it('should clear all messages', () => {
     errorStack.stack_push('error', 'Error');
     errorStack.stack_clear();
-    expect(errorStack.all_get()).toHaveLength(0);
+    expect(errorStack.stack_getAll()).toHaveLength(0);
   });
 
   it('should clear messages of a specific type', () => {
@@ -73,27 +73,27 @@ describe('ErrorStack', () => {
   });
 
   it('should check for existence of messages', () => {
-    expect(errorStack.messages_checkExistence()).toBe(false);
+    expect(errorStack.messages_has()).toBe(false);
     errorStack.stack_push('error', 'An error');
-    expect(errorStack.messages_checkExistence()).toBe(true);
+    expect(errorStack.messages_has()).toBe(true);
   });
 
   it('should check for existence of messages of a specific type', () => {
     errorStack.stack_push('error', 'An error');
-    expect(errorStack.messagesOfType_checkExistence('error')).toBe(true);
-    expect(errorStack.messagesOfType_checkExistence('warning')).toBe(false);
+    expect(errorStack.messagesOfType_has('error')).toBe(true);
+    expect(errorStack.messagesOfType_has('warning')).toBe(false);
   });
 
   it('should configure function name padding width', () => {
     // Simply check that calling it doesn't throw and allows pushing messages
     errorStack_configure({ functionNamePadWidth: 10 });
     errorStack.stack_push('error', 'Test config with short width');
-    const messages1 = errorStack.all_get();
+    const messages1 = errorStack.stack_getAll();
     expect(messages1.length).toBeGreaterThan(0);
     
     errorStack_configure({ functionNamePadWidth: 50 });
     errorStack.stack_push('error', 'Test config with large width');
-    const messages2 = errorStack.all_get();
+    const messages2 = errorStack.stack_getAll();
     expect(messages2.length).toBeGreaterThan(messages1.length);
   });
 });
