@@ -94,6 +94,13 @@ export class ChRISConnection {
    */
   async connection_connect(options: ConnectOptions): Promise<string | null> {
     const { user, password, debug, url }: ConnectOptions = options;
+
+    // Ensure configuration is initialized before use
+    if (this.storageProvider) {
+      await config_init(this.storageProvider);
+      this.config = connectionConfig;
+    }
+
     const authUrl: string = url + "auth-token/";
     this.user = user;
     this.chrisURL = url;
