@@ -216,6 +216,67 @@ export class ChRISResource {
     }
   }
 
+  get hasNextPage(): boolean {
+    if (this._resourceCollection instanceof ListResource) {
+      // @ts-ignore: hasNext exists on ListResource at runtime
+      return this._resourceCollection.hasNext;
+    }
+    return false;
+  }
+
+  /**
+   * Lists *all* resources by automatically handling pagination.
+   * @param options - Filtering options. Limit and offset will be managed internally.
+   * @returns A Promise resolving to FilteredResourceData containing all matching resources, or null.
+   */
+  async resources_getAll(
+    options?: Partial<ListOptions>
+  ): Promise<FilteredResourceData | null> {
+    const limit = 100;
+    let offset = 0;
+    let allTableData: Record<string, any>[] = [];
+    let selectedFields: string[] = [];
+    // If options has a limit, we should respect it? No, getAll implies fetching everything.
+    // But we should respect filters.
+
+    while (true) {
+      const pageOptions = { ...options, limit, offset };
+      const result = await this.resources_listAndFilterByOptions(pageOptions);
+
+      if (!result || !result.tableData) {
+        break;
+      }
+
+      if (selectedFields.length === 0) {
+        selectedFields = result.selectedFields;
+      }
+
+      allTableData = allTableData.concat(result.tableData);
+
+      // Robust exit condition:
+      // 1. If API says no next page.
+      if (!this.hasNextPage) {
+        break;
+      }
+      
+      // 2. Safety fallback: if we got 0 items, we are definitely done to avoid infinite loops.
+      if (result.tableData.length === 0) {
+        break;
+      }
+
+      offset += limit;
+    }
+
+    if (allTableData.length === 0) {
+      return null;
+    }
+
+    return {
+      tableData: allTableData,
+      selectedFields,
+    };
+  }
+
   /**
    * Lists and filters resources based on options.
    * @param options - Filtering and listing options.
