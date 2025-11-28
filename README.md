@@ -1,27 +1,30 @@
 # Cumin 🌿
 
-`cumin` is the infrastructure and state management layer of the ChRIS interface ecosystem. It is a Node.js backend library that handles the "dirty work" of connecting to ChRIS, managing authentication tokens, and persisting user sessions.
+`cumin` is the infrastructure and state management layer of the ChRIS interface ecosystem. It is a backend library that handles the "dirty work" of connecting to ChRIS, managing authentication tokens, and persisting user sessions.
 
 ## Abstract
 
 `cumin` abstracts the ChRIS REST API into a stateful, object-oriented environment. It is responsible for:
 1.  **Connection Management**: Handling authentication, token storage, and client initialization.
-2.  **Context Persistence**: Implementing the "Context" engine that remembers the active User, CUBE URL, and Working Directory across sessions.
-3.  **Resource Handling**: Providing `ChRISResource` and `ChRISResourceGroup` classes for managing collections and individual items, including advanced pagination.
+2.  **Context Persistence**: Implementing the "Context" engine that remembers the active User, CUBE URL, and Working Directory.
+3.  **IO & Storage**: Providing an abstraction (`IStorageProvider`) for filesystem access, enabling support for both Node.js (via `fs`) and other environments.
 
 ## Role in the Ecosystem
 
 In the "Sandwich Model" architecture, `cumin` is the bottom layer (just above the raw API client).
 
--   **Consumers**: It is primarily consumed by [`salsa`](../salsa/README.md) (to execute logic) and [`chili`](../chili/README.md) (to manage CLI state).
--   **Environment**: It is designed for Node.js environments (relying on the local filesystem for state persistence).
+-   **Consumers**: Primarily [`salsa`](../salsa/README.md) (logic) and [`chili`](../chili/README.md) (CLI state).
+-   **Environment**: Designed for Node.js but architected with interfaces to support browser environments.
 
 ## Core Features
 
 -   **`ChrisContext`**: The state machine for multi-tenant, multi-backend sessions.
 -   **`ChRISConnection`**: Wrapper for the low-level API client.
--   **`ChRISResource.resources_getAll()`**: A powerful, generic method that handles fetching *all* items from any paginated CUBE resource automatically, abstracting away pagination details for consumers.
--   **`keypair.ts`**: The parser for "Searchable" strings (e.g., `name:demo, version:1.0`).
+-   **`IStorageProvider`**: Abstraction interface for reading/writing config and data.
+    -   Includes `readBinary` for binary file uploads.
+    -   Includes recursive directory traversal helpers.
+-   **`ChrisIO`**: High-level IO operations, including recursive directory uploading (`uploadLocalPath`).
+-   **`ChRISResource.resources_getAll()`**: Generic pagination handler.
 
 ## Developer Setup
 

@@ -1,4 +1,4 @@
-import { IStorageProvider } from "./io";
+import { IStorageProvider } from "./io.js";
 
 /**
  * An in-memory, non-persisting storage provider suitable for browser environments
@@ -28,6 +28,17 @@ export class BrowserStorageProvider implements IStorageProvider {
   async read(path: string): Promise<string | null> {
     const data = this.store.get(path);
     return data === undefined ? null : data;
+  }
+
+  /**
+   * Reads binary data associated with a path.
+   *
+   * @param path - The virtual path.
+   * @returns A Promise resolving to ArrayBuffer or null.
+   */
+  async readBinary(path: string): Promise<ArrayBuffer | null> {
+    console.warn("[BrowserStorageProvider] readBinary not implemented for in-memory store.");
+    return null;
   }
 
   /**
@@ -118,5 +129,14 @@ export class BrowserStorageProvider implements IStorageProvider {
         }
     }
     return false;
+  }
+
+  /**
+   * Joins path segments.
+   * @param paths - The path segments.
+   * @returns Joined path.
+   */
+  join(...paths: string[]): string {
+    return paths.join('/');
   }
 }

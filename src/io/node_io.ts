@@ -41,6 +41,23 @@ export class NodeStorageProvider implements IStorageProvider {
     }
   }
 
+  async readBinary(filepath: string): Promise<ArrayBuffer | null> {
+    const resolvedPath = this.resolvePath(filepath);
+    try {
+      if (await this.exists(resolvedPath)) {
+        const buffer = await fs.readFile(resolvedPath);
+        // Convert Buffer to ArrayBuffer
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+      }
+      return null;
+    } catch (error: any) {
+      if (error.code === "ENOENT") {
+        return null;
+      }
+      throw new Error(`Failed to read binary file ${resolvedPath}: ${error.message}`);
+    }
+  }
+
   async write(filepath: string, data: string): Promise<void> {
     const resolvedPath = this.resolvePath(filepath);
     const dir = path.dirname(resolvedPath);
@@ -120,5 +137,9 @@ export class NodeStorageProvider implements IStorageProvider {
         `Failed to check if directory ${resolvedPath}: ${error.message}`
       );
     }
+  }
+
+  join(...paths: string[]): string {
+    return path.join(...paths);
   }
 }

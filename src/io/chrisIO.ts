@@ -10,6 +10,7 @@
 import { chrisConnection } from "../connect/chrisConnection.js";
 import Client, { FileBrowserFolder, UserFile } from "@fnndsc/chrisapi";
 import { errorStack } from "../error/errorStack.js";
+import { IStorageProvider } from "./io.js";
 
 /**
  * Class for handling IO operations with ChRIS.
@@ -17,9 +18,18 @@ import { errorStack } from "../error/errorStack.js";
 export class ChrisIO {
   private _chrisFolder: string = "";
   private _client: Client | null = null;
+  private storageProvider: IStorageProvider | null = null;
 
   constructor() {
     // Client initialization is deferred or handled via async accessor
+  }
+
+  /**
+   * Sets the storage provider for local IO operations.
+   * @param provider - The storage provider instance.
+   */
+  storageProvider_set(provider: IStorageProvider): void {
+    this.storageProvider = provider;
   }
 
   /**
@@ -115,10 +125,11 @@ export class ChrisIO {
   /**
    * Uploads a file to ChRIS.
    * @param fileBlob - The file content as a Blob.
-   * @param chrisPath - The path in ChRIS to upload to.
+   * @param uploadDir - The directory path in ChRIS to upload to.
+   * @param filename - The name of the file to create.
    * @returns A Promise resolving to true on success, false on failure.
    */
-  async file_upload(fileBlob: Blob, chrisPath: string): Promise<boolean> {
+  async file_upload(fileBlob: Blob, uploadDir: string, filename: string): Promise<boolean> {
     const client = await this.client_get();
     if (!client) {
       console.error("ChRIS client is not initialized");
@@ -127,19 +138,90 @@ export class ChrisIO {
 
     try {
       const data: { upload_path: string } = {
-        upload_path: chrisPath,
+        upload_path: uploadDir,
       };
 
-      const uploadFileObj: { fname: any } = { fname: fileBlob };
+      let fileObj: Blob | File = fileBlob;
+      if (typeof File !== 'undefined') {
+        fileObj = new File([fileBlob], filename);
+      }
+
+      const uploadFileObj: { fname: Blob | File } = { fname: fileObj };
 
       await client.uploadFile(data, uploadFileObj);
       return true;
     } catch (error: unknown) {
       errorStack.stack_push(
         "error",
-        `Failed to upload file ${chrisPath}:
+        `Failed to upload file ${filename} to ${uploadDir}:
         ${error instanceof Error ? error.message : String(error)}`
       );
+      return false;
+    }
+  }
+
+  /**
+   * Uploads a local directory or file to ChRIS recursively.
+   * @param localPath - The path on the local filesystem.
+   * @param remotePath - The full destination path on ChRIS (including filename if it's a file).
+   *                     If uploading a dir, this is the directory name on ChRIS.
+   * @returns Promise<boolean> success status.
+   */
+  async uploadLocalPath(localPath: string, remotePath: string): Promise<boolean> {
+    if (!this.storageProvider) {
+      errorStack.stack_push("error", "Storage provider not configured in ChrisIO.");
+      return false;
+    }
+
+    try {
+      const isDir: boolean = await this.storageProvider.isDirectory(localPath);
+
+      if (isDir) {
+        const entries: string[] = await this.storageProvider.readdir(localPath);
+        let success = true;
+
+        for (const entry of entries) {
+          const childLocal: string = this.storageProvider.join(localPath, entry);
+          const childRemote: string = remotePath.endsWith('/') 
+             ? remotePath + entry 
+             : remotePath + '/' + entry;
+             
+          const result: boolean = await this.uploadLocalPath(childLocal, childRemote);
+          if (!result) success = false;
+        }
+        return success;
+      } else {
+        // It's a file
+        const content: ArrayBuffer | null = await this.storageProvider.readBinary(localPath);
+        if (!content) {
+           errorStack.stack_push("error", `Failed to read local file: ${localPath}`);
+           return false; 
+        }
+        
+        const blob = new Blob([content]);
+        
+        // Split remotePath into dir and filename
+        // We need a reliable way to split paths. 
+        // Since remote path is ChRIS path (Unix-like), we split by last '/'
+        const lastSlashIndex = remotePath.lastIndexOf('/');
+        let dir = "";
+        let name = remotePath;
+        if (lastSlashIndex !== -1) {
+          dir = remotePath.substring(0, lastSlashIndex);
+          name = remotePath.substring(lastSlashIndex + 1);
+        }
+        
+        // If dir is empty, it implies root or relative? ChRIS paths usually absolute.
+        // If remotePath was just "filename", dir is empty.
+        // API requires absolute path usually.
+        
+        if (!dir) dir = "/"; // Default to root if no dir specified? Or error?
+        
+        return await this.file_upload(blob, dir, name);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push("error", `Recursive upload failed for ${localPath}: ${msg}`);
       return false;
     }
   }
@@ -153,6 +235,8 @@ export class ChrisIO {
     if (!client) {
       return null;
     }
+    
+    // dummy_upload is deprecated/test logic, fixing for compilation
     const data: { upload_path: string } = {
       upload_path: this.chrisFolder,
     };
@@ -162,10 +246,9 @@ export class ChrisIO {
     const uploadFileBlob: Blob = new Blob([fileData], {
       type: "application/json",
     });
-    const uploadFileObj: { fname: Blob } = { fname: uploadFileBlob };
-
-    const result: any = await client.uploadFile(data, uploadFileObj);
-    return true;
+    const filename = "dummy.json";
+    
+    return await this.file_upload(uploadFileBlob, this.chrisFolder, filename);
   }
 }
 

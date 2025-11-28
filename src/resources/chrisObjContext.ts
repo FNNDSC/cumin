@@ -94,6 +94,11 @@ const ObjContexts: { [key: string]: ObjContextConfig } = {
     getMethod: "getChildren",
     contextType: "folder",
   },
+  ChRISFeedGroup: { // ADDED
+    name: "Feed",
+    getMethod: "getFeeds",
+    contextType: "feed",
+  },
 };
 
 const objContextFactories: { [key: string]: ChRISObjContextFactory } = {};

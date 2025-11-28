@@ -322,6 +322,8 @@ export class ChRISConnection {
   }
 }
 
+import { chrisIO } from "../io/chrisIO.js";
+
 /**
  * Global instance of ChRISConnection, initialized as a constant singleton.
  */
@@ -334,5 +336,6 @@ export let chrisConnection: ChRISConnection = new ChRISConnection();
 export async function chrisConnection_init(storageProvider: IStorageProvider): Promise<ChRISConnection> {
   await config_init(storageProvider); // This sets the global connectionConfig
   chrisConnection = new ChRISConnection(connectionConfig, storageProvider);
+  chrisIO.storageProvider_set(storageProvider);
   return chrisConnection;
 }
