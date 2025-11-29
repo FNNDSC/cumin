@@ -253,17 +253,23 @@ export class ChRISResource {
 
       allTableData = allTableData.concat(result.tableData);
 
-      // Robust exit condition:
-      // 1. If API says no next page.
-      if (!this.hasNextPage) {
-        break;
-      }
-      
-      // 2. Safety fallback: if we got 0 items, we are definitely done to avoid infinite loops.
+      // Robust exit conditions:
+      // 1. If we got 0 items, we are definitely done.
       if (result.tableData.length === 0) {
         break;
       }
 
+      // 2. If we got fewer items than the limit, this must be the last page.
+      if (result.tableData.length < limit) {
+        break;
+      }
+
+      // 3. If API explicitly says no next page (and it's not undefined).
+      if (this.hasNextPage === false) {
+        break;
+      }
+
+      // If we got a full page and hasNextPage is not explicitly false, continue
       offset += limit;
     }
 
