@@ -5,7 +5,7 @@
 | |__| |_| | | | | | | | | | |
  \____\__,_|_| |_|_| |_|_| |_|
 ```
-**ChRIS Unified Management and Infrastructure**
+**Cumin Underpins Management Infrastructure Needs**
 
 `cumin` is the infrastructure and state management layer of the ChRIS interface ecosystem. It is a backend library that handles the "dirty work" of connecting to ChRIS, managing authentication tokens, and persisting user sessions.
 

@@ -1,0 +1,1046 @@
+= Error Handling in Cumin
+:toc:
+:toc-placement: preamble
+:toclevels: 3
+:sectnums:
+
+== Overview
+
+Cumin implements a dual-layer error handling strategy that separates concerns between *error accumulation* (for UI display) and *control flow* (for program logic). This approach was designed specifically for web/CLI applications where silent failures are unacceptable and users need meaningful feedback.
+
+=== The Problem
+
+Traditional exception-based error handling has limitations in interactive applications:
+
+* **Silent failures**: Exceptions can be caught and swallowed, leaving users wondering what happened
+* **Hidden control flow**: It's not obvious from function signatures whether a function can fail
+* **Temporal coupling**: Error information is lost if not immediately handled
+* **Poor UX**: Stack traces and generic error messages don't help end users
+
+=== The Solution
+
+Cumin uses two complementary mechanisms:
+
+1. **`errorStack`**: A singleton that accumulates error messages for UI display
+2. **`Result<T>`**: A type that makes success/failure explicit in function signatures
+
+[source,typescript]
+----
+// Functions push errors to the stack AND return Result types
+async function pluginIDs_resolve(searchable: string): Promise<Result<QueryHits>> {
+  if (!searchable.validate()) {
+    errorStack.stack_push("error", "Invalid searchable format"); // <1>
+    return Err(); // <2>
+  }
+  return Ok(pluginList); // <3>
+}
+
+// Callers MUST check .ok before accessing .value
+const result = await plugin.pluginIDs_resolve('pl-dircopy');
+if (!result.ok) { // <4>
+  // Error details are in errorStack
+  return null;
+}
+const pluginID = result.value.hits[0]; // <5>
+----
+<1> Push descriptive error to errorStack for UI display
+<2> Return Err() to signal failure
+<3> Return Ok(value) to signal success
+<4> TypeScript forces explicit check
+<5> TypeScript knows .value exists here
+
+== The errorStack
+
+=== Purpose
+
+The `errorStack` is a global singleton that accumulates error and warning messages throughout the application lifecycle. Higher-level code (controllers, UI) can query the stack to display meaningful messages to users.
+
+=== API
+
+[source,typescript]
+----
+import { errorStack } from '@fnndsc/cumin';
+
+// Push an error
+errorStack.stack_push("error", "Failed to connect to ChRIS");
+
+// Push a warning
+errorStack.stack_push("warning", "Multiple plugins matched your search");
+
+// Search for errors containing a keyword
+const errors = errorStack.stack_search("plugin");
+
+// Clear the stack
+errorStack.stack_clear();
+----
+
+=== Severity Levels
+
+* **`"error"`**: Operation failed, user action required
+* **`"warning"`**: Operation succeeded with caveats, user should be informed
+* **`"info"`**: Informational messages (less commonly used)
+
+=== Best Practices
+
+[cols="2,2,2,3"]
+|===
+|Guideline |Do |Don't |Why
+
+|Use descriptive messages
+|`"Invalid searchable format"`
+|`"Error"`
+|Users need context
+
+|Include relevant details
+|`"Plugin 'pl-dircopy' not found"`
+|`"Not found"`
+|Helps debugging
+
+|Push before returning Err()
+|`errorStack.push(...); return Err();`
+|`return Err();`
+|Error details would be lost
+
+|Use warnings for non-fatal issues
+|`"Multiple plugins found, using first"`
+|Silent or error
+|Informs without alarming
+|===
+
+== The Result Type
+
+=== Definition
+
+[source,typescript]
+----
+export type Result<T> =
+  | { ok: true; value: T }
+  | { ok: false };
+----
+
+This is a *discriminated union* that TypeScript can use for type narrowing.
+
+=== Helper Functions
+
+[source,typescript]
+----
+import { Ok, Err, isOk, isErr } from '@fnndsc/cumin';
+
+// Create a successful result
+const success: Result<number> = Ok(42);
+
+// Create a failed result
+const failure: Result<number> = Err();
+
+// Type guards (rarely needed, direct .ok check is preferred)
+if (isOk(result)) {
+  console.log(result.value); // TypeScript knows .value exists
+}
+----
+
+=== Type Safety
+
+The Result type prevents accessing `.value` on failed results:
+
+[source,typescript]
+----
+const result: Result<QueryHits> = await plugin.pluginIDs_resolve('pl-dircopy');
+
+//  TypeScript error: result might not have .value
+const hits = result.value.hits;
+
+//  Correct: check .ok first
+if (result.ok) {
+  const hits = result.value.hits; // TypeScript knows this is safe
+}
+----
+
+== Pattern Usage
+
+=== Writing Functions
+
+==== Signature Pattern
+
+[source,typescript]
+----
+// Before: Failure hidden in return type
+async function getData(): Promise<Data | null> { ... }
+
+// After: Failure explicit in signature
+async function getData(): Promise<Result<Data>> { ... }
+----
+
+==== Implementation Pattern
+
+[source,typescript]
+----
+async function plugin_run(name: string, params: string): Promise<Result<Dictionary>> {
+  // 1. Validate inputs
+  if (!name) {
+    errorStack.stack_push("error", "Plugin name is required");
+    return Err();
+  }
+
+  // 2. Call dependencies (which also return Result)
+  const pluginResult = await this.pluginIDs_resolve(name);
+  if (!pluginResult.ok) {
+    // Error already in errorStack from pluginIDs_resolve()
+    return Err();
+  }
+
+  // 3. Use the value (TypeScript knows it's safe)
+  const pluginID = pluginResult.value.hits[0];
+
+  // 4. Handle exceptions from external APIs
+  try {
+    const instance = await client.createPluginInstance(pluginID, params);
+    if (!instance) {
+      errorStack.stack_push("error", "Failed to create plugin instance");
+      return Err();
+    }
+    return Ok(instance);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      errorStack.stack_push("error", `Plugin execution failed: ${error.message}`);
+    }
+    return Err();
+  }
+}
+----
+
+=== Calling Functions
+
+==== Basic Pattern
+
+[source,typescript]
+----
+const result = await someFunction();
+if (!result.ok) {
+  // Handle failure (error details in errorStack)
+  return null; // or Err() if this function also returns Result
+}
+
+// Use the value
+const data = result.value;
+----
+
+==== Early Return Pattern
+
+[source,typescript]
+----
+async function processData(): Promise<Result<ProcessedData>> {
+  const fetchResult = await fetchData();
+  if (!fetchResult.ok) {
+    return Err(); // Propagate failure
+  }
+
+  const validateResult = validate(fetchResult.value);
+  if (!validateResult.ok) {
+    return Err(); // Propagate failure
+  }
+
+  return Ok(process(validateResult.value));
+}
+----
+
+==== Chaining Pattern
+
+[source,typescript]
+----
+async function complexOperation(): Promise<Result<FinalResult>> {
+  // Step 1
+  const step1 = await operation1();
+  if (!step1.ok) return Err();
+
+  // Step 2 depends on step 1
+  const step2 = await operation2(step1.value);
+  if (!step2.ok) return Err();
+
+  // Step 3 depends on step 2
+  const step3 = await operation3(step2.value);
+  if (!step3.ok) return Err();
+
+  return Ok(combine(step1.value, step2.value, step3.value));
+}
+----
+
+=== Boolean vs Result<void>
+
+For operations that don't return data:
+
+[source,typescript]
+----
+// Before: boolean return
+async function uploadFile(blob: Blob, path: string): Promise<boolean> {
+  try {
+    await client.uploadFile(blob, path);
+    return true;
+  } catch (error) {
+    console.error(error); // Silent to caller!
+    return false;
+  }
+}
+
+// After: Result<void> makes error handling explicit
+async function uploadFile(blob: Blob, path: string): Promise<Result<void>> {
+  try {
+    await client.uploadFile(blob, path);
+    return Ok(undefined); // <1>
+  } catch (error) {
+    errorStack.stack_push("error", `Upload failed: ${error.message}`);
+    return Err();
+  }
+}
+----
+<1> Use `Ok(undefined)` or `Ok(void 0)` for success without data
+
+Callers convert back to boolean if needed:
+
+[source,typescript]
+----
+const result = await uploadFile(blob, path);
+return result.ok; // boolean
+----
+
+== Migration Guide
+
+=== Step 1: Change Function Signature
+
+[source,typescript]
+----
+// Before
+async function getData(): Promise<Data | null> { ... }
+
+// After
+async function getData(): Promise<Result<Data>> { ... }
+----
+
+=== Step 2: Replace null Returns with Err()
+
+[source,typescript]
+----
+// Before
+if (!data) {
+  return null;
+}
+
+// After
+if (!data) {
+  errorStack.stack_push("error", "No data found");
+  return Err();
+}
+----
+
+=== Step 3: Replace Success Returns with Ok()
+
+[source,typescript]
+----
+// Before
+return data;
+
+// After
+return Ok(data);
+----
+
+=== Step 4: Update Callers
+
+[source,typescript]
+----
+// Before
+const data = await getData();
+if (!data) {
+  return null;
+}
+use(data);
+
+// After
+const result = await getData();
+if (!result.ok) {
+  return Err(); // or null, depending on this function's return type
+}
+use(result.value);
+----
+
+=== Step 5: Update Tests
+
+[source,typescript]
+----
+// Before
+const data = await getData();
+expect(data).not.toBeNull();
+expect(data.id).toBe(123);
+
+// After
+const result = await getData();
+expect(result.ok).toBe(true);
+if (result.ok) {
+  expect(result.value.id).toBe(123);
+}
+----
+
+Mock functions also need updating:
+
+[source,typescript]
+----
+// Before
+jest.spyOn(obj, 'getData').mockResolvedValue({ id: 123 });
+
+// After
+import { Ok } from '@fnndsc/cumin';
+jest.spyOn(obj, 'getData').mockResolvedValue(Ok({ id: 123 }));
+----
+
+== Design Philosophy
+
+=== Why Not Just Exceptions?
+
+[cols="1,2,2"]
+|===
+|Aspect |Exceptions |Result + errorStack
+
+|Visibility
+|Hidden (not in signature)
+|Explicit (in signature)
+
+|Type safety
+|No compile-time checking
+|TypeScript enforces checks
+
+|UI feedback
+|Requires catch at every level
+|Accumulated in errorStack
+
+|Control flow
+|Non-local (jumps stack)
+|Local (explicit checks)
+
+|Forgotten handling
+|Silent bugs
+|Compile error
+|===
+
+=== Why Not Result Alone?
+
+Using Result without errorStack would require:
+
+[source,typescript]
+----
+// Every Result would need to carry error details
+type Result<T, E> =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+// Error handling becomes verbose
+const result = await getData();
+if (!result.ok) {
+  console.error(result.error); // Each caller must handle display
+  return Err(result.error); // Must propagate error manually
+}
+----
+
+With errorStack:
+
+[source,typescript]
+----
+// Simple Result type
+type Result<T> = { ok: true; value: T } | { ok: false };
+
+// Errors accumulated automatically
+const result = await getData();
+if (!result.ok) {
+  return Err(); // UI can query errorStack later
+}
+----
+
+=== Why Not errorStack Alone?
+
+Using only errorStack:
+
+[source,typescript]
+----
+const data = await getData(); // Returns Data | null
+if (!data) {
+  // Did it fail? Or return valid null? Unclear!
+  // Must check errorStack to know
+  return null;
+}
+----
+
+With Result:
+
+[source,typescript]
+----
+const result = await getData(); // Returns Result<Data>
+if (!result.ok) {
+  // Definitely failed, errors in errorStack
+  return Err();
+}
+// Definitely succeeded, data is result.value
+----
+
+== Error Handling Spectrum
+
+This section positions Cumin's approach within the broader landscape of error handling strategies, from implicit runtime-checked errors (JavaScript) to fully explicit compile-time-enforced errors (Rust).
+
+=== Traditional JavaScript
+
+JavaScript's error handling is fundamentally **implicit and runtime-checked**:
+
+[source,javascript]
+----
+// Exceptions - hidden control flow
+async function fetchUser(id) {
+  const response = await fetch(`/api/users/${id}`); // <1>
+  const user = await response.json(); // <2>
+  return user;
+}
+
+// Null returns - implicit failure
+async function findUser(id) {
+  const users = await getUsers();
+  return users.find(u => u.id === id) ?? null; // <3>
+}
+
+// Usage - easy to forget error handling
+const user = await fetchUser(123); // <4>
+user.name; // Runtime error if fetch failed!
+----
+<1> May throw NetworkError - not visible in signature
+<2> May throw SyntaxError - not visible in signature
+<3> Null conflates "not found" with "error" - caller can't distinguish
+<4> No compile-time reminder to handle errors
+
+**Characteristics:**
+[cols="1,3"]
+|===
+|**Implicit failures** |Functions can fail in ways not visible in their signature
+|**Runtime checking** |No compile-time enforcement of error handling
+|**Null/undefined** |Ambiguous - error, missing, or intentional?
+|**Exceptions** |Non-local control flow, easy to forget catching
+|**Opt-in** |Error handling is developer's responsibility
+|===
+
+=== Cumin's TypeScript Result Approach
+
+Cumin adopts **explicit, compile-time-checked** error handling while remaining pragmatic:
+
+[source,typescript]
+----
+// Explicit failure in signature
+async function fetchUser(id: number): Promise<Result<User>> {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+    const user = await response.json();
+    return Ok(user); // <1>
+  } catch (error) {
+    errorStack.stack_push("error", `Failed to fetch user ${id}`); // <2>
+    return Err(); // <3>
+  }
+}
+
+// Usage - TypeScript forces error handling
+const result = await fetchUser(123);
+// result.value; // ❌ TypeScript error: must check .ok first
+
+if (!result.ok) { // <4>
+  // Handle failure, errors in errorStack
+  return;
+}
+const user = result.value; // <5>
+user.name; // ✅ TypeScript knows this is safe
+----
+<1> Wrap success in Ok()
+<2> Push user-facing error to errorStack
+<3> Return Err() for control flow
+<4> Compile-time enforcement - must check .ok
+<5> TypeScript narrows type after .ok check
+
+**Characteristics:**
+[cols="1,3"]
+|===
+|**Explicit failures** |`Result<T>` in signature signals function can fail
+|**Compile-time checking** |TypeScript enforces checking `.ok` before accessing `.value`
+|**Dual-layer** |errorStack for UI + Result for control flow
+|**Type narrowing** |Discriminated union enables type-safe access
+|**Pragmatic** |Still allows null in some places, still has exceptions in constructors
+|===
+
+=== Rust's Result<T, E>
+
+Rust goes **all the way** with compile-time-enforced, exception-free error handling:
+
+[source,rust]
+----
+use std::error::Error;
+
+// Explicit failure with error type
+async fn fetch_user(id: u64) -> Result<User, FetchError> { // <1>
+    let response = http_get(&format!("/api/users/{}", id))?; // <2>
+    let user = response.json()?; // <3>
+    Ok(user) // <4>
+}
+
+// Usage - compiler forces error handling
+let result = fetch_user(123).await;
+// result.name; // ❌ Compile error: Result is not a User
+
+match result { // <5>
+    Ok(user) => println!("{}", user.name), // <6>
+    Err(e) => eprintln!("Error: {}", e), // <7>
+}
+
+// Or use ? operator to propagate
+fn process() -> Result<(), FetchError> {
+    let user = fetch_user(123).await?; // <8>
+    println!("{}", user.name);
+    Ok(())
+}
+----
+<1> Result carries both success type (User) and error type (FetchError)
+<2> `?` operator: if Err, return early; if Ok, unwrap value
+<3> Chaining with `?` - concise error propagation
+<4> Wrap success in Ok
+<5> Pattern matching - compiler ensures both branches handled
+<6> Success branch - user is User type here
+<7> Error branch - e is FetchError type here
+<8> `?` automatically converts and propagates errors up the call stack
+
+**Characteristics:**
+[cols="1,3"]
+|===
+|**Fully explicit** |All failures in type system, no exceptions (except panic!)
+|**Compile-time enforced** |Cannot access value without matching/checking
+|**Rich error types** |`Result<T, E>` carries specific error type
+|**No null** |`Option<T>` for nullable, `Result<T, E>` for errors - never conflated
+|**Zero-cost** |Optimized to same assembly as error codes
+|**?? operator** |Concise propagation without boilerplate
+|===
+
+=== Where Cumin Sits on the Spectrum
+
+[source]
+----
+Implicit                           Pragmatic                          Explicit
+Runtime-checked                    Hybrid                             Compile-time enforced
+────────────────────────────────────────────────────────────────────────────────
+JavaScript                         Cumin (TypeScript)                  Rust
+
+• Exceptions                       • Result<T> + errorStack            • Result<T, E>
+• null/undefined                   • TypeScript enforcement            • No exceptions
+• No compile checks                • Still has null in places          • No null (Option<T>)
+• Easy to forget                   • Still has throws in ctors         • ? operator
+                                   • No error type parameter           • match expressions
+                                   • Manual propagation                • Sum types everywhere
+
+Low developer friction             ⚖ Balanced                          Maximum safety
+Low type safety                                                        High ceremony
+----
+
+**Cumin is approximately 70% toward Rust** on this spectrum:
+
+[cols="2,3,3"]
+|===
+|**Aspect** |**Cumin** |**Rust**
+
+|**Explicitness**
+|✅ Result in signatures
+|✅ Result in signatures
+
+|**Compile-time checking**
+|✅ TypeScript enforces .ok check
+|✅ Compiler enforces match/check
+
+|**Error types**
+|❌ Result<T> only (no error type)
+|✅ Result<T, E> with specific errors
+
+|**Null handling**
+|⚠️ Still allows null in some places
+|✅ Option<T> separate from Result
+
+|**Exceptions**
+|⚠️ Still used in constructors, IO
+|✅ No exceptions (only panic!)
+
+|**Propagation**
+|⚠️ Manual if/return boilerplate
+|✅ ? operator for concise propagation
+
+|**UI layer**
+|✅ errorStack accumulates for display
+|❌ Each layer handles separately
+|===
+
+=== Why Not Go All the Way to Rust?
+
+Cumin stops short of Rust's full approach for pragmatic reasons:
+
+**1. JavaScript ecosystem compatibility**
+[source,typescript]
+----
+// External libraries throw exceptions
+try {
+  const response = await fetch(url); // May throw
+  const data = await response.json(); // May throw
+} catch (error) {
+  // Must catch and convert to Result
+  return Err();
+}
+----
+
+**2. Constructor limitations**
+[source,typescript]
+----
+// TypeScript constructors must return `this`
+class ChRISPlugin {
+  constructor() {
+    this.client = getClient(); // <1>
+  }
+}
+----
+<1> If getClient() fails, can only throw - factories would add ceremony
+
+**3. UI error accumulation**
+[source,typescript]
+----
+// errorStack lets UI collect all errors from deep call chains
+// Rust would require threading error context through every layer
+// or using a global error handler (similar trade-off)
+----
+
+**4. TypeScript's type system**
+[source,typescript]
+----
+// TypeScript lacks Rust's advanced features:
+// - No ? operator for propagation
+// - No exhaustive match checking (can add default case)
+// - No zero-cost abstractions guarantee
+----
+
+**5. Developer ergonomics**
+
+Cumin prioritizes **pragmatic adoption** over **maximum safety**:
+
+* Result for critical paths (plugin resolution, feed creation, file I/O)
+* Exceptions still allowed for initialization and rare errors
+* null still used in some legacy interfaces
+* No error type parameter - keeps types simpler
+
+This is a **conscious trade-off**: we gain significant type safety and explicit error handling without requiring the team to adopt Rust-level ceremony.
+
+=== Summary: Three Philosophies
+
+[cols="1,2,2,2"]
+|===
+|**Aspect** |**JavaScript** |**Cumin (TypeScript)** |**Rust**
+
+|**Philosophy**
+|"Easy to write"
+|"Safe where it matters"
+|"Impossible to do wrong"
+
+|**Error visibility**
+|Runtime discovery
+|Type signatures
+|Type signatures + error types
+
+|**Enforcement**
+|None
+|Compile-time (TypeScript)
+|Compile-time (borrow checker)
+
+|**Opt-in vs forced**
+|Opt-in
+|Forced for Result, opt-in elsewhere
+|Forced everywhere
+
+|**Ceremony**
+|Low
+|Medium
+|High
+
+|**Safety**
+|Low (runtime errors common)
+|Medium-High (most errors caught)
+|Maximum (few runtime errors possible)
+
+|**Best for**
+|Rapid prototyping, scripts
+|Interactive apps, APIs
+|Systems, embedded, safety-critical
+|===
+
+**Key insight:** Cumin adopts Rust's Result pattern while remaining a **TypeScript-idiomatic** solution. It brings the benefits of explicit error handling without requiring a complete paradigm shift from JavaScript conventions.
+
+== Common Patterns
+
+=== Converting External API Results
+
+[source,typescript]
+----
+async function fetchFromAPI(): Promise<Result<APIData>> {
+  try {
+    const response = await externalAPI.get();
+    if (!response.ok) {
+      errorStack.stack_push("error", `API error: ${response.statusText}`);
+      return Err();
+    }
+    return Ok(response.data);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Network error: ${message}`);
+    return Err();
+  }
+}
+----
+
+=== Multiple Error Conditions
+
+[source,typescript]
+----
+async function validate(data: unknown): Promise<Result<ValidData>> {
+  if (!data) {
+    errorStack.stack_push("error", "Data is required");
+    return Err();
+  }
+
+  if (typeof data !== 'object') {
+    errorStack.stack_push("error", "Data must be an object");
+    return Err();
+  }
+
+  if (!('id' in data)) {
+    errorStack.stack_push("error", "Missing required field: id");
+    return Err();
+  }
+
+  return Ok(data as ValidData);
+}
+----
+
+=== Collecting Partial Failures
+
+[source,typescript]
+----
+async function uploadMultiple(files: File[]): Promise<Result<void>> {
+  let hasFailures = false;
+
+  for (const file of files) {
+    const result = await uploadFile(file);
+    if (!result.ok) {
+      hasFailures = true;
+      // Error already in errorStack from uploadFile()
+    }
+  }
+
+  if (hasFailures) {
+    errorStack.stack_push("warning", "Some files failed to upload");
+    return Err(); // Or Ok(undefined) depending on requirements
+  }
+
+  return Ok(undefined);
+}
+----
+
+=== Result from Boolean Functions
+
+Converting legacy boolean functions:
+
+[source,typescript]
+----
+// Legacy function you can't change
+function legacyCheck(): boolean { ... }
+
+// Wrapper that converts to Result
+function checkWithResult(): Result<void> {
+  const success = legacyCheck();
+  if (!success) {
+    errorStack.stack_push("error", "Legacy check failed");
+    return Err();
+  }
+  return Ok(undefined);
+}
+----
+
+== Testing Result-based Functions
+
+=== Unit Tests
+
+[source,typescript]
+----
+describe('pluginIDs_resolve()', () => {
+  it('should return Ok with valid searchable', async () => {
+    const result = await plugin.pluginIDs_resolve('pl-dircopy');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.hits).toHaveLength(1);
+      expect(result.value.hits[0]).toBe(123);
+    }
+  });
+
+  it('should return Err with invalid searchable', async () => {
+    const result = await plugin.pluginIDs_resolve('');
+
+    expect(result.ok).toBe(false);
+    // Check errorStack was populated
+    const errors = errorStack.stack_search("searchable");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+});
+----
+
+=== Mocking Result-based Functions
+
+[source,typescript]
+----
+import { Ok, Err } from '@fnndsc/cumin';
+
+// Mock success
+jest.spyOn(plugin, 'pluginIDs_resolve').mockResolvedValue(Ok({
+  hits: [123, 456]
+}));
+
+// Mock failure
+jest.spyOn(plugin, 'pluginIDs_resolve').mockResolvedValue(Err());
+
+// Mock with conditional logic
+jest.spyOn(plugin, 'pluginIDs_resolve').mockImplementation(async (name) => {
+  if (name === 'valid') {
+    return Ok({ hits: [123] });
+  }
+  return Err();
+});
+----
+
+== Best Practices Summary
+
+=== Do's ✅
+
+* **Always** push to errorStack before returning Err()
+* **Always** check `.ok` before accessing `.value`
+* **Use** descriptive error messages that help users
+* **Return** `Result<void>` for operations without return values
+* **Propagate** failures by checking results and returning Err()
+* **Test** both success and failure paths
+
+=== Don'ts ❌
+
+* **Don't** return Err() without pushing to errorStack
+* **Don't** access `.value` without checking `.ok` first
+* **Don't** use vague error messages like "Error" or "Failed"
+* **Don't** return boolean when Result would be clearer
+* **Don't** catch and ignore errors silently
+* **Don't** mix null returns with Result returns in the same codebase
+
+=== Guidelines
+
+[quote]
+____
+*Error messages are for users, not developers.* Include context: what failed, why it matters, what the user can do about it.
+____
+
+[quote]
+____
+*Type safety is your friend.* If TypeScript complains about accessing `.value`, you forgot to check `.ok`.
+____
+
+[quote]
+____
+*Fail fast, fail explicitly.* Return Err() immediately when validation fails. Don't limp along with partial data.
+____
+
+[quote]
+____
+*errorStack is append-only.* Don't clear it in library code. Let UI/controller code decide when to clear.
+____
+
+== Architecture Integration
+
+=== Layer Responsibilities
+
+[source]
+----
+┌─────────────────────────────────────────┐
+│  chell (UI/Shell)                       │
+│  - Displays errors from errorStack      │
+│  - Handles Ok/Err at user interaction   │
+└─────────────────────────────────────────┘
+                  │
+┌─────────────────────────────────────────┐
+│  chili (Controllers)                    │
+│  - Converts Result to HTTP/CLI response │
+│  - Queries errorStack for display       │
+└─────────────────────────────────────────┘
+                  │
+┌─────────────────────────────────────────┐
+│  salsa (Business Logic)                 │
+│  - Calls cumin functions                │
+│  - Handles Result types                 │
+│  - May add additional context to errors │
+└─────────────────────────────────────────┘
+                  │
+┌─────────────────────────────────────────┐
+│  cumin (Infrastructure)                 │
+│  - Defines Result type                  │
+│  - Implements Result-returning functions│
+│  - Pushes to errorStack                 │
+└─────────────────────────────────────────┘
+----
+
+=== Error Flow
+
+. Low-level function encounters error
+. Pushes descriptive message to errorStack
+. Returns `Err()`
+. Caller checks `.ok`, propagates `Err()` upward
+. Controller/UI queries errorStack for display
+. User sees meaningful error message
+
+== Migration Status
+
+=== ✅ Fully Migrated
+
+* `chrisPlugins.ts` - All plugin operations
+* `chrisFeed.ts` - Feed creation operations
+* `chrisIO.ts` - File upload/download operations
+* `chrisContext.ts` - Context resolution
+* All callers in salsa and chili layers
+
+=== ⏸ Deferred
+
+* `node_io.ts` - Filesystem operations (throws are appropriate at IO boundary)
+* Constructor initialization - Would require factory pattern refactor
+* Config validation - Low impact, single throw
+
+=== Test Coverage
+
+* 185 cumin tests passing
+* 30 dedicated Result pattern tests
+* Integration tests updated
+* All mock functions updated
+
+== References
+
+=== Related Files
+
+* `src/utils/result.ts` - Result type definition and helpers
+* `src/error/errorStack.ts` - Error accumulation singleton
+* `tests/result.test.ts` - Result type unit tests
+* `tests/searchable-integration.test.ts` - Example of Result usage in tests
+
+=== External Inspiration
+
+This pattern is inspired by:
+
+* **Rust's `Result<T, E>`** - Explicit error handling via types
+* **Go's `(value, error)` returns** - Explicit error returns
+* **Functional Either type** - Discriminated union for success/failure
+
+Adapted for TypeScript and ChRIS's specific needs (UI error display + control flow).
+
+See <<Error Handling Spectrum>> for a detailed comparison of how Cumin's approach relates to traditional JavaScript and Rust's fully explicit error handling.
+
+---
+
+_Last updated: 2025-01-30_
