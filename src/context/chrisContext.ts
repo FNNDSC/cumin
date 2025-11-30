@@ -11,6 +11,7 @@
 import { sessionConfig, config_init, ConnectionConfig } from "../config/config.js";
 import * as path from "path";
 import { QueryHits } from "../utils/keypair.js";
+import { Searchable } from "../utils/searchable.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
 
 /**
@@ -120,15 +121,19 @@ export async function chrisContextURL_parse(
 }
 
 /**
- * helper to get plugin ID from a searchable string.
+ * Helper to get plugin ID from a searchable string.
  *
- * @param searchable - The string to search for.
+ * @param searchable - The searchable string or object to search for.
  * @returns A Promise resolving to the plugin ID or null.
  */
-async function searchable_toID(searchable: string): Promise<string | null> {
+async function searchable_toID(searchable: string | Searchable): Promise<string | null> {
+  const searchableObj = typeof searchable === 'string'
+    ? Searchable.from(searchable)
+    : searchable;
+
   const plugin: ChRISPlugin = new ChRISPlugin();
   const ids: QueryHits | null = await plugin.pluginIDs_getFromSearchable(
-    searchable
+    searchableObj
   );
   if (ids) {
     const id: number = ids.hits[0] as number;

@@ -27,6 +27,7 @@ import {
   ChRISObjectParams,
   dictionary_fromCLI,
 } from "../utils/keypair.js";
+import { Searchable } from "../utils/searchable.js";
 import { errorStack } from "../error/errorStack.js";
 
 /**
@@ -63,18 +64,32 @@ export class ChRISPlugin {
     return this._client;
   }
 
+  /**
+   * Converts a plain string to a searchable format.
+   * @deprecated Use Searchable.from() instead.
+   */
   pluginString_makeSearchable(plugin: string): string {
-    if (plugin.includes(":")) {
-      return plugin;
-    }
-    return `name: ${plugin}`;
+    const searchable = Searchable.from(plugin);
+    return searchable.toNormalizedString();
   }
 
-  async pluginIDs_resolve(pluginSearchable: string): Promise<QueryHits | null> {
-    const pluginSpec: string =
-      this.pluginString_makeSearchable(pluginSearchable);
+  /**
+   * Resolves a searchable string or object to plugin IDs.
+   * @param pluginSearchable - A searchable string or Searchable object.
+   * @returns A Promise resolving to QueryHits containing matching plugin IDs.
+   */
+  async pluginIDs_resolve(pluginSearchable: string | Searchable): Promise<QueryHits | null> {
+    const searchable = typeof pluginSearchable === 'string'
+      ? Searchable.from(pluginSearchable)
+      : pluginSearchable;
+
+    if (!searchable.validate()) {
+      errorStack.stack_push("error", "Invalid searchable format");
+      return null;
+    }
+
     const pluginList: QueryHits | null = await this.pluginIDs_getFromSearchable(
-      pluginSpec
+      searchable
     );
     if (!pluginList || pluginList.hits.length === 0) {
       errorStack.stack_push("error", "No matching plugins found");
@@ -194,11 +209,20 @@ export class ChRISPlugin {
     return queryHits;
   }
 
+  /**
+   * Gets plugin IDs from a searchable.
+   * @param searchable - A searchable string or Searchable object.
+   * @returns A Promise resolving to QueryHits containing matching plugin IDs.
+   */
   async pluginIDs_getFromSearchable(
-    searchable: string
+    searchable: string | Searchable
   ): Promise<QueryHits | null> {
+    const searchableObj = typeof searchable === 'string'
+      ? Searchable.from(searchable)
+      : searchable;
+
     const seachParams: ChRISElementsGet = {
-      search: searchable,
+      search: searchableObj.toNormalizedString(),
     };
     const pluginList: QueryHits | null = await this.pluginData_getFromSearch(
       seachParams,
@@ -207,14 +231,14 @@ export class ChRISPlugin {
     if (!pluginList) {
       errorStack.stack_push(
         "error",
-        `A plugin conforming to "${searchable}" was not found.`
+        `A plugin conforming to "${searchableObj.raw}" was not found.`
       );
       return null;
     }
     if (pluginList.hits.length > 1) {
       errorStack.stack_push(
         "warning",
-        `Multiple plugins conformed to "${searchable}.`
+        `Multiple plugins conformed to "${searchableObj.raw}".`
       );
     }
     return pluginList;

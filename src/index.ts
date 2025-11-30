@@ -18,6 +18,7 @@ export * from "./io/chrisIO";
 export * from "./io/io";
 export * from "./io/node_io";
 export * from "./utils/keypair";
+export * from "./utils/searchable";
 
 /**
  * Gets the ChRIS version from the given URL.
