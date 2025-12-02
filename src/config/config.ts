@@ -58,6 +58,7 @@ export class ConnectionConfig {
   public tokenFile: string;
   public tokenFilepath: string;
   public readonly currentDirectory: string;
+  public debug: boolean = false;
 
   private constructor(
     options: ConnectionConfigOptions = {},

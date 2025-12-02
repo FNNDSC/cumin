@@ -58,7 +58,7 @@ export class ChRISConnection {
   private user: string | null = null;
   private chrisURL: string | null = null;
   private client: Client | null = null;
-  private config?: ConnectionConfig; // Made optional
+  private _config?: ConnectionConfig; // Renamed backing field
   private storageProvider?: IStorageProvider; // Made optional
 
   /**
@@ -72,8 +72,15 @@ export class ChRISConnection {
     }
     // Ensure that config and storageProvider are not undefined if no args were passed.
     // This allows the initial `new ChRISConnection()` to create a valid, though uninitialized, object.
-    this.config = config;
+    this._config = config;
     this.storageProvider = storageProvider;
+  }
+
+  /**
+   * Access the connection configuration.
+   */
+  public get config(): ConnectionConfig | undefined {
+    return this._config;
   }
 
   /**
@@ -82,9 +89,9 @@ export class ChRISConnection {
    * @param storageProvider - The storage provider for persistence.
    */
   init(config: ConnectionConfig, storageProvider: IStorageProvider) {
-    this.config = config;
+    this._config = config;
     this.storageProvider = storageProvider;
-    this.tokenFile = this.config.tokenFilepath;
+    this.tokenFile = this._config.tokenFilepath;
   }
 
   /**
@@ -98,15 +105,15 @@ export class ChRISConnection {
     // Ensure configuration is initialized before use
     if (this.storageProvider) {
       await config_init(this.storageProvider);
-      this.config = connectionConfig;
+      this._config = connectionConfig;
     }
 
     const authUrl: string = url + "auth-token/";
     this.user = user;
     this.chrisURL = url;
     console.log(`Connecting to ${url} with user ${user}`);
-    await this.config!.context_set(user, url);
-    this.tokenFile = this.config!.tokenFilepath;
+    await this._config!.context_set(user, url);
+    this.tokenFile = this._config!.tokenFilepath;
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
@@ -160,7 +167,7 @@ export class ChRISConnection {
         (await chrisContext.current_set(Context.ChRISuser, parsedContext.user)); // Await this call
       this.user = parsedContext.user;
       needsRefresh = true;
-      await this.config!.context_set(
+      await this._config!.context_set(
         parsedContext.user,
         parsedContext.URL || ''
       );
@@ -172,7 +179,7 @@ export class ChRISConnection {
       this.chrisURL = parsedContext.URL;
       this.user = currentContext.user;
       needsRefresh = true;
-      await this.config!.context_set(this.user || "", parsedContext.URL);
+      await this._config!.context_set(this.user || "", parsedContext.URL);
     }
 
     if (parsedContext.folder) {
@@ -234,10 +241,10 @@ export class ChRISConnection {
    */
   async chrisURL_get(): Promise<string | null> {
     if (!this.chrisURL) {
-      if (!this.config) {
+      if (!this._config) {
         return null; // config not initialized
       }
-      this.chrisURL = await this.config.chrisURL_load();
+      this.chrisURL = await this._config.chrisURL_load();
     }
     return this.chrisURL;
   }
@@ -247,7 +254,7 @@ export class ChRISConnection {
    * @returns A Promise resolving to the refreshed Client instance or null.
    */
   async client_refresh(): Promise<Client | null> {
-    this.tokenFile = this.config!.tokenFilepath;
+    this.tokenFile = this._config!.tokenFilepath;
     this.chrisURL = await this.chrisURL_get();
     this.authToken = await this.authToken_get(true); // Pass true directly
     if (this.chrisURL && this.authToken) {

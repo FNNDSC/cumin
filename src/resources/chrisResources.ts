@@ -10,6 +10,7 @@
 import Client from "@fnndsc/chrisapi";
 import { ListResource, Resource, ItemResource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
+import { connectionConfig } from "../config/config.js";
 
 /**
  * A simple record with string keys and any values.
@@ -477,12 +478,23 @@ export class ChRISResource {
     await this._resolveLazyBinding();
 
     if (!this.resourceMethod) return params;
-    let resources: ListResource | null;
+    let resources: ListResource | null = null;
     try {
       resources = await this.resourceMethod(pureparams);
-    } catch (error) {
-      simplifiedParams = this.options_simplify(pureparams);
-      resources = await this.resourceMethod(simplifiedParams);
+    } catch (error: unknown) {
+      if (connectionConfig && connectionConfig.debug) {
+        console.error(`Error fetching ${this._resourceName}:`, error);
+      }
+      // Attempt simplified params as fallback
+      try {
+        simplifiedParams = this.options_simplify(pureparams);
+        resources = await this.resourceMethod(simplifiedParams);
+      } catch (retryError) {
+        if (connectionConfig && connectionConfig.debug) {
+          console.error(`Retry failed for ${this._resourceName}:`, retryError);
+        }
+        throw retryError; // Re-throw the error if retry fails
+      }
     }
     if (resources == undefined || resources == null) {
       console.log(
