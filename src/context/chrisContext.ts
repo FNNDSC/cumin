@@ -13,6 +13,7 @@ import * as path from "path";
 import { QueryHits } from "../utils/keypair.js";
 import { Searchable } from "../utils/searchable.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
+import { listCache_get } from "../cache/index.js";
 
 /**
  * Enum defining the types of context available in ChRIS.
@@ -333,6 +334,9 @@ export class ChrisContext {
       case Context.ChRISfolder:
         this._singleContext.folder = value;
         status = await this.ChRISfolder_set(value);
+        // Invalidate listing cache on CWD change
+        const listCache = listCache_get();
+        listCache.cwd_update(value);
         break;
       case Context.ChRISfeed:
         this._singleContext.feed = value;

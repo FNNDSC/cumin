@@ -20,6 +20,7 @@ export * from "./io/node_io";
 export * from "./utils/keypair";
 export * from "./utils/searchable";
 export * from "./utils/result";
+export * from "./cache";
 
 /**
  * Gets the ChRIS version from the given URL.
