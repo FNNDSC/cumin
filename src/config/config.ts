@@ -78,6 +78,7 @@ export class ConnectionConfig {
     this.tokenFile = name.replace("/", "_") + "_token.txt";
     this.tokenFilepath = options.tokenFilepath || "";
     this.currentDirectory = options.currentDirectory || process.cwd();
+    this.debug = process.env.CHILI_DEBUG === 'true';
   }
 
   /**
