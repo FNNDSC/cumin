@@ -12,6 +12,7 @@ export interface IStorageProvider {
     readdir(path: string): Promise<string[]>;
     isDirectory(path: string): Promise<boolean>;
     join(...paths: string[]): string;
+    basename(path: string): string;
 }
 
 export { BrowserStorageProvider } from "./browser_io";

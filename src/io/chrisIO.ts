@@ -137,8 +137,15 @@ export class ChrisIO {
     }
 
     try {
+      // ChRIS API expects paths WITHOUT leading slash
+      // upload_path should be the FULL PATH including filename
+      const normalizedUploadDir = uploadDir.startsWith('/') ? uploadDir.substring(1) : uploadDir;
+      const fullPath = normalizedUploadDir.endsWith('/')
+        ? normalizedUploadDir + filename
+        : normalizedUploadDir + '/' + filename;
+
       const data: { upload_path: string } = {
-        upload_path: uploadDir,
+        upload_path: fullPath,
       };
 
       let fileObj: Blob | File = fileBlob;
@@ -148,13 +155,19 @@ export class ChrisIO {
 
       const uploadFileObj: { fname: Blob | File } = { fname: fileObj };
 
-      await client.uploadFile(data, uploadFileObj);
+      const uploadPromise = client.uploadFile(data, uploadFileObj);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Upload timeout after 30s')), 30000)
+      );
+
+      await Promise.race([uploadPromise, timeoutPromise]);
+
       return true;
     } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       errorStack.stack_push(
         "error",
-        `Failed to upload file ${filename} to ${uploadDir}:
-        ${error instanceof Error ? error.message : String(error)}`
+        `Failed to upload file ${filename} to ${uploadDir}: ${errorMsg}`
       );
       return false;
     }
@@ -163,8 +176,8 @@ export class ChrisIO {
   /**
    * Uploads a local directory or file to ChRIS recursively.
    * @param localPath - The path on the local filesystem.
-   * @param remotePath - The full destination path on ChRIS (including filename if it's a file).
-   *                     If uploading a dir, this is the directory name on ChRIS.
+   * @param remotePath - The destination path on ChRIS. For directories, follows Unix cp semantics:
+   *                     the source directory name is appended to remotePath.
    * @returns Promise<boolean> success status.
    */
   async uploadLocalPath(localPath: string, remotePath: string): Promise<boolean> {
@@ -177,15 +190,22 @@ export class ChrisIO {
       const isDir: boolean = await this.storageProvider.isDirectory(localPath);
 
       if (isDir) {
+        // For directories, follow Unix cp semantics: append source dir basename to target
+        // e.g., upload ~/test-upload /home/user -> /home/user/test-upload/
+        const dirBasename: string = this.storageProvider.basename(localPath);
+        const targetDir: string = remotePath.endsWith('/')
+          ? remotePath + dirBasename
+          : remotePath + '/' + dirBasename;
+
         const entries: string[] = await this.storageProvider.readdir(localPath);
         let success = true;
 
         for (const entry of entries) {
           const childLocal: string = this.storageProvider.join(localPath, entry);
-          const childRemote: string = remotePath.endsWith('/') 
-             ? remotePath + entry 
-             : remotePath + '/' + entry;
-             
+          const childRemote: string = targetDir.endsWith('/')
+             ? targetDir + entry
+             : targetDir + '/' + entry;
+
           const result: boolean = await this.uploadLocalPath(childLocal, childRemote);
           if (!result) success = false;
         }
@@ -195,13 +215,12 @@ export class ChrisIO {
         const content: ArrayBuffer | null = await this.storageProvider.readBinary(localPath);
         if (!content) {
            errorStack.stack_push("error", `Failed to read local file: ${localPath}`);
-           return false; 
+           return false;
         }
-        
+
         const blob = new Blob([content]);
-        
+
         // Split remotePath into dir and filename
-        // We need a reliable way to split paths. 
         // Since remote path is ChRIS path (Unix-like), we split by last '/'
         const lastSlashIndex = remotePath.lastIndexOf('/');
         let dir = "";
@@ -210,13 +229,10 @@ export class ChrisIO {
           dir = remotePath.substring(0, lastSlashIndex);
           name = remotePath.substring(lastSlashIndex + 1);
         }
-        
-        // If dir is empty, it implies root or relative? ChRIS paths usually absolute.
-        // If remotePath was just "filename", dir is empty.
-        // API requires absolute path usually.
-        
-        if (!dir) dir = "/"; // Default to root if no dir specified? Or error?
-        
+
+        // If dir is empty, use root
+        if (!dir) dir = "/";
+
         return await this.file_upload(blob, dir, name);
       }
     } catch (error: unknown) {

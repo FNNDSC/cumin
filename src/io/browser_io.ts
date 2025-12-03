@@ -139,4 +139,14 @@ export class BrowserStorageProvider implements IStorageProvider {
   join(...paths: string[]): string {
     return paths.join('/');
   }
+
+  /**
+   * Returns the last portion of a path.
+   * @param path - The path to extract the basename from.
+   * @returns The basename.
+   */
+  basename(path: string): string {
+    const parts = path.split('/');
+    return parts[parts.length - 1] || '';
+  }
 }

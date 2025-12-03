@@ -142,4 +142,8 @@ export class NodeStorageProvider implements IStorageProvider {
   join(...paths: string[]): string {
     return path.join(...paths);
   }
+
+  basename(filepath: string): string {
+    return path.basename(filepath);
+  }
 }
