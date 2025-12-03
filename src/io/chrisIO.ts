@@ -11,6 +11,7 @@ import { chrisConnection } from "../connect/chrisConnection.js";
 import Client, { FileBrowserFolder, UserFile } from "@fnndsc/chrisapi";
 import { errorStack } from "../error/errorStack.js";
 import { IStorageProvider } from "./io.js";
+import { Err, Ok, Result } from "../utils/result.js";
 
 /**
  * Class for handling IO operations with ChRIS.
@@ -170,6 +171,64 @@ export class ChrisIO {
         `Failed to upload file ${filename} to ${uploadDir}: ${errorMsg}`
       );
       return false;
+    }
+  }
+
+  /**
+   * Moves (renames) a folder in ChRIS by updating its path.
+   * @param srcPath - The current folder path.
+   * @param destPath - The new folder path.
+   * @returns Promise resolving to true on success, false on failure.
+   */
+  async folder_moveByPath(srcPath: string, destPath: string): Promise<Result<boolean>> {
+    const client: Client | null = await this.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "ChRIS client is not initialized");
+      return Err<boolean>();
+    }
+
+    try {
+      const folder: FileBrowserFolder | null = await client.getFileBrowserFolderByPath(srcPath);
+      if (!folder) {
+        errorStack.stack_push("error", `Folder not found: ${srcPath}`);
+        return Err<boolean>();
+      }
+      // chrisapi typings omit the path field, but API supports it for renames
+      await (folder as unknown as { put(body: Record<string, unknown>): Promise<unknown> }).put({ path: destPath });
+      return Ok(true);
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push("error", `Failed to move folder ${srcPath} to ${destPath}: ${errorMsg}`);
+      return Err<boolean>();
+    }
+  }
+
+  /**
+   * Moves (renames) a file in ChRIS by updating its path.
+   * @param fileId - The file ID.
+   * @param destPath - The target path including filename.
+   * @returns Promise resolving to true on success, false on failure.
+   */
+  async file_moveById(fileId: number, destPath: string): Promise<Result<boolean>> {
+    const client: Client | null = await this.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "ChRIS client is not initialized");
+      return Err<boolean>();
+    }
+
+    try {
+      const userFile: UserFile | null = await client.getUserFile(fileId);
+      if (!userFile) {
+        errorStack.stack_push("error", `File not found with ID ${fileId}`);
+        return Err<boolean>();
+      }
+      // chrisapi typings omit the path field, but API supports it for renames
+      await (userFile as unknown as { put(body: Record<string, unknown>): Promise<unknown> }).put({ path: destPath });
+      return Ok(true);
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push("error", `Failed to move file ID ${fileId} to ${destPath}: ${errorMsg}`);
+      return Err<boolean>();
     }
   }
 
