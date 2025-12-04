@@ -8,6 +8,7 @@ export * from "./connect/chrisConnection";
 export * from "./context/chrisContext";
 export * from "./plugins/chrisPlugins";
 export * from "./plugins/chrisPluginMetaPlugins";
+export * from "./compute/computeResources";
 export * from "./resources/chrisResources";
 export * from "./resources/chrisResourceGroup";
 export * from "./resources/chrisObjContext";

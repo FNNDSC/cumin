@@ -250,4 +250,172 @@ export class ChRISPlugin {
       "id"
     );
   }
+
+  /**
+   * Uploads a plugin representation file to create a new plugin admin resource.
+   *
+   * Requires admin credentials. Will push error to errorStack if authentication fails.
+   *
+   * @param pluginData - Plugin descriptor JSON data.
+   * @param computeResources - Array of compute resource names to assign plugin to.
+   * @param adminToken - Optional admin authentication token (if different from current user).
+   * @returns Promise resolving to the created plugin data or null on failure.
+   */
+  async plugin_registerWithAdmin(
+    pluginData: Record<string, unknown>,
+    computeResources: string[] = ['host'],
+    adminToken?: string
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const client = await this.client_get();
+      if (!client) {
+        errorStack.stack_push('error', 'Not connected to ChRIS. Please log in.');
+        return null;
+      }
+
+      // Create plugin representation as JSON string (ChRIS expects a file upload)
+      const pluginJson: string = JSON.stringify(pluginData, null, 2);
+      const pluginBlob: Blob = new Blob([pluginJson], { type: 'application/json' });
+
+      const computeNames: string = computeResources.join(',');
+      const pluginFileObj = { fname: pluginBlob };
+
+      const pluginAdmin = await client.adminUploadPlugin(
+        { compute_names: computeNames },
+        pluginFileObj
+      );
+
+      if (pluginAdmin && pluginAdmin.data) {
+        return pluginAdmin.data;
+      }
+
+      errorStack.stack_push('error', 'Failed to register plugin. No data in response.');
+      return null;
+    } catch (error: unknown) {
+      // Check for admin authentication errors
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      const errorString: string = errorMessage.toLowerCase();
+
+      if (errorString.includes('403') || errorString.includes('forbidden') ||
+          errorString.includes('401') || errorString.includes('unauthorized') ||
+          errorString.includes('permission denied')) {
+        errorStack.stack_push(
+          'error',
+          'Admin credentials required to register plugins. Authentication failed.'
+        );
+      } else {
+        errorStack.stack_push('error', `Failed to register plugin: ${errorMessage}`);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Searches for a plugin in a peer ChRIS store (public plugin repository).
+   *
+   * Uses anonymous client to query public plugin stores without authentication.
+   *
+   * @param pluginName - Name of the plugin to search for.
+   * @param peerStoreUrl - URL of the peer ChRIS store (default: cube.chrisproject.org).
+   * @returns Promise resolving to plugin data and store URL, or null if not found.
+   */
+  async plugin_searchPeerStore(
+    pluginName: string,
+    peerStoreUrl: string = 'https://cube.chrisproject.org/api/v1/'
+  ): Promise<{ plugin: Record<string, unknown>; storeUrl: string } | null> {
+    try {
+      // Note: @fnndsc/chrisapi doesn't have built-in anonymous client
+      // We'll use direct HTTP request for peer store search
+      const searchUrl: string = `${peerStoreUrl}plugins/search/?name=${encodeURIComponent(pluginName)}`;
+
+      const response: Response = await fetch(searchUrl);
+      if (!response.ok) {
+        errorStack.stack_push(
+          'error',
+          `Failed to search peer store: ${response.status} ${response.statusText}`
+        );
+        return null;
+      }
+
+      const data: any = await response.json();
+      const results: any[] = data.results || [];
+
+      if (results.length === 0) {
+        return null;
+      }
+
+      // Return first matching plugin
+      const plugin: any = results[0];
+      return {
+        plugin: plugin,
+        storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/`
+      };
+    } catch (error: unknown) {
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push('error', `Failed to search peer store: ${errorMessage}`);
+      return null;
+    }
+  }
+
+  /**
+   * Checks if a plugin with given name or dock_image already exists in current CUBE.
+   *
+   * @param nameOrImage - Plugin name or docker image to search for.
+   * @returns Promise resolving to plugin data if found, null otherwise.
+   */
+  async plugin_existsInCube(nameOrImage: string): Promise<Record<string, unknown> | null> {
+    try {
+      const client = await this.client_get();
+      if (!client) {
+        return null;
+      }
+
+      // Try searching by name first
+      let pluginList = await client.getPlugins({ name_exact: nameOrImage, limit: 1 });
+      if (pluginList && pluginList.data && pluginList.data.length > 0) {
+        return pluginList.data[0];
+      }
+
+      // Try searching by dock_image
+      pluginList = await client.getPlugins({ dock_image: nameOrImage, limit: 1 });
+      if (pluginList && pluginList.data && pluginList.data.length > 0) {
+        return pluginList.data[0];
+      }
+
+      return null;
+    } catch (error: unknown) {
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push('error', `Failed to check if plugin exists: ${errorMessage}`);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the compute resources currently assigned to a plugin.
+   *
+   * @param pluginId - ID of the plugin.
+   * @returns Promise resolving to array of compute resource names.
+   */
+  async plugin_getComputeResources(pluginId: number): Promise<string[]> {
+    try {
+      const client = await this.client_get();
+      if (!client) {
+        return [];
+      }
+
+      const plugin = await client.getPlugin(pluginId);
+      if (!plugin) {
+        return [];
+      }
+
+      const computeResourceList = await plugin.getPluginComputeResources();
+      const resources: any[] = computeResourceList.data || [];
+
+      return resources.map((r: any) => r.name);
+    } catch (error: unknown) {
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push('error', `Failed to get plugin compute resources: ${errorMessage}`);
+      return [];
+    }
+  }
 }
