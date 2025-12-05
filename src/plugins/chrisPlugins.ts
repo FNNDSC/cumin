@@ -44,6 +44,49 @@ interface PreviousIDParam {
 }
 
 /**
+ * Interface for Collection+JSON data item.
+ */
+interface CollectionData {
+  name: string;
+  value: unknown;
+  prompt?: string;
+}
+
+/**
+ * Interface for Collection+JSON item.
+ */
+interface CollectionItem {
+  href: string;
+  data?: CollectionData[];
+  links?: Array<{ rel: string; href: string }>;
+}
+
+/**
+ * Interface for Collection+JSON response.
+ */
+interface CollectionJson {
+  collection: {
+    version: string;
+    href: string;
+    items?: CollectionItem[];
+    links?: Array<{ rel: string; href: string }>;
+    error?: { message: string };
+  };
+}
+
+/**
+ * Type guard for CollectionJson.
+ */
+function isCollectionJson(data: unknown): data is CollectionJson {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'collection' in data &&
+    typeof (data as any).collection === 'object'
+  );
+}
+
+/**
  * Class for managing individual ChRIS plugins.
  */
 export class ChRISPlugin {
@@ -267,7 +310,21 @@ export class ChRISPlugin {
     adminToken?: string
   ): Promise<Record<string, unknown> | null> {
     try {
-      const client = await this.client_get();
+      let client: Client | null;
+
+      if (adminToken) {
+        // Use the provided admin token to create a specific client for this operation
+        const url: string | null = await chrisConnection.chrisURL_get();
+        if (!url) {
+           errorStack.stack_push('error', 'ChRIS URL not found. Cannot create admin client.');
+           return null;
+        }
+        client = new Client(url, { token: adminToken });
+      } else {
+        // Use the default authenticated client
+        client = await this.client_get();
+      }
+
       if (!client) {
         errorStack.stack_push('error', 'Not connected to ChRIS. Please log in.');
         return null;
@@ -310,46 +367,141 @@ export class ChRISPlugin {
     }
   }
 
-  /**
-   * Searches for a plugin in a peer ChRIS store (public plugin repository).
-   *
-   * Uses anonymous client to query public plugin stores without authentication.
-   *
-   * @param pluginName - Name of the plugin to search for.
-   * @param peerStoreUrl - URL of the peer ChRIS store (default: cube.chrisproject.org).
-   * @returns Promise resolving to plugin data and store URL, or null if not found.
-   */
-  async plugin_searchPeerStore(
-    pluginName: string,
-    peerStoreUrl: string = 'https://cube.chrisproject.org/api/v1/'
-  ): Promise<{ plugin: Record<string, unknown>; storeUrl: string } | null> {
-    try {
-      // Note: @fnndsc/chrisapi doesn't have built-in anonymous client
-      // We'll use direct HTTP request for peer store search
-      const searchUrl: string = `${peerStoreUrl}plugins/search/?name=${encodeURIComponent(pluginName)}`;
+    /**
+     * Searches for a plugin in a peer ChRIS store (public plugin repository).
+     * 
+     * Uses anonymous client to query public plugin stores without authentication.
+     * 
+     * @param pluginName - Name of the plugin to search for.
+     * @param version - Optional version of the plugin to search for.
+     * @param peerStoreUrl - URL of the peer ChRIS store (default: cube.chrisproject.org).
+     * @returns Promise resolving to plugin data and store URL, or null if not found.
+     */
+    async plugin_searchPeerStore(
+      pluginName: string,
+      version?: string,
+      peerStoreUrl: string = 'https://cube.chrisproject.org/api/v1/'
+    ): Promise<{ plugin: Record<string, unknown>; storeUrl: string } | null> {
+      try {
+        // Construct search URL with name_exact and optional version
+        let searchUrl: string = `${peerStoreUrl}plugins/search/?name_exact=${encodeURIComponent(pluginName)}`;
+        if (version) {
+          searchUrl += `&version=${encodeURIComponent(version)}`;
+        }
+  
+        const response: Response = await fetch(searchUrl, {
+          headers: {
+            'Accept': 'application/vnd.collection+json'
+          }
+        });
+  
+        if (!response.ok) {
+          errorStack.stack_push(
+            'error',
+            `Failed to search peer store: ${response.status} ${response.statusText}`
+          );
+          return null;
+        }
+  
+        const data: unknown = await response.json();
+  
+        // Handle Collection+JSON format (standard for ChRIS API)
+        if (isCollectionJson(data) && data.collection && data.collection.items) {
+          const items: CollectionItem[] = data.collection.items;
+          if (items.length === 0) {
+            return null;
+          }
+  
+          // Iterate through items to find exact name and version match (if version provided)
+          // If version is not provided, prioritize exact name match
+          let targetItem: CollectionItem | null = null;
+          const exactNameMatches: CollectionItem[] = [];
+  
+          for (const item of items) {
+            const itemData: Record<string, unknown> = {};
+            if (item.data) {
+              item.data.forEach((datum: CollectionData) => {
+                itemData[datum.name] = datum.value;
+              });
+            }
+            
+            if (itemData['name'] === pluginName) {
+              exactNameMatches.push(item);
+              if (version && itemData['version'] === version) {
+                targetItem = item; // Found exact name and version
+                break;
+              } else if (!version) {
+                // If no version specified, any exact name match is a candidate
+                // For now, continue to find the "best" match (first by default)
+                // Or consider latest version if multiple
+              }
+            }
+          }
+  
+          // If exact name+version found, use it
+          // If only exact name matches found (and no version specified), pick the first one from exactNameMatches
+          // If no exact name match (even after filtering), fallback to first item in original 'items' if any.
+          if (targetItem) {
+              // targetItem is already the name+version exact match
+          } else if (exactNameMatches.length > 0 && !version) {
+              // If no version was specified and we found exact name matches, take the first one
+              targetItem = exactNameMatches[0];
+          } else {
+              // Fallback to first item from original query results if no specific name match
+              targetItem = items[0];
+                          // If we didn't find an exact name match, but we are using this as fallback,
+                          // we should warn if names differ.
+                           const targetItemData: Record<string, unknown> = {};
+                           if (targetItem.data) {
+                               targetItem.data.forEach((datum: CollectionData) => {
+                                   targetItemData[datum.name] = datum.value;
+                               });
+                           }
+                           if (targetItemData['name'] !== pluginName) {
+                              errorStack.stack_push('warning', `Peer store search for exact plugin name '${pluginName}' returned '${targetItemData['name']}'. Exact name not found, using first result.`);
+                           }
+                      }  
+          // Extract data from target item
+          const pluginData: Record<string, unknown> = {};
+  
+          if (targetItem.data) {
+            targetItem.data.forEach((datum: CollectionData) => {
+              pluginData[datum.name] = datum.value;
+            });
+          }
+  
+          // Ensure 'url' is present
+          if (targetItem.href) {
+            pluginData['url'] = targetItem.href;
+          }
+  
+          // Extract links if present
+          if (targetItem.links) {
+            pluginData['links'] = targetItem.links;
+          }
+  
+          return {
+            plugin: pluginData,
+            storeUrl: targetItem.href
+          };
+        }
+      // Fallback for simple JSON (if ever supported)
+      if (typeof data === 'object' && data !== null && 'results' in data) {
+        const results: any[] = (data as any).results || [];
 
-      const response: Response = await fetch(searchUrl);
-      if (!response.ok) {
-        errorStack.stack_push(
-          'error',
-          `Failed to search peer store: ${response.status} ${response.statusText}`
-        );
-        return null;
+        if (results.length === 0) {
+          return null;
+        }
+
+        // Return first matching plugin
+        const plugin: any = results[0];
+        return {
+          plugin: plugin,
+          storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/`
+        };
       }
 
-      const data: any = await response.json();
-      const results: any[] = data.results || [];
-
-      if (results.length === 0) {
-        return null;
-      }
-
-      // Return first matching plugin
-      const plugin: any = results[0];
-      return {
-        plugin: plugin,
-        storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/`
-      };
+      return null;
     } catch (error: unknown) {
       const errorMessage: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push('error', `Failed to search peer store: ${errorMessage}`);
@@ -386,6 +538,90 @@ export class ChRISPlugin {
     } catch (error: unknown) {
       const errorMessage: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push('error', `Failed to check if plugin exists: ${errorMessage}`);
+      return null;
+    }
+  }
+
+  /**
+   * Lists plugins from a peer ChRIS store.
+   * Handles pagination to fetch all results.
+   *
+   * @param peerStoreUrl - URL of the peer store.
+   * @param searchParams - Optional search parameters.
+   * @returns Promise resolving to array of plugin data objects.
+   */
+  async plugin_listPeerStore(
+    peerStoreUrl: string = 'https://cube.chrisproject.org/api/v1/',
+    searchParams?: Record<string, string>
+  ): Promise<Record<string, unknown>[] | null> {
+    try {
+      let url: string;
+      
+      // Use search endpoint if search parameters are provided
+      if (searchParams && Object.keys(searchParams).length > 0) {
+        url = `${peerStoreUrl}plugins/search/`;
+      } else {
+        url = `${peerStoreUrl}plugins/`;
+      }
+      
+      const params = new URLSearchParams();
+      params.append('limit', '100'); // Efficient pagination
+
+      if (searchParams) {
+        for (const [key, value] of Object.entries(searchParams)) {
+          params.append(key, value);
+        }
+      }
+      
+      url += `?${params.toString()}`;
+
+      const allPlugins: Record<string, unknown>[] = [];
+      let nextUrl: string | null = url;
+
+      while (nextUrl) {
+        const response: Response = await fetch(nextUrl, {
+          headers: { 'Accept': 'application/vnd.collection+json' }
+        });
+
+        if (!response.ok) {
+          errorStack.stack_push('error', `Failed to fetch from peer store: ${response.statusText}`);
+          return null;
+        }
+
+        const data: unknown = await response.json();
+
+        if (isCollectionJson(data) && data.collection.items) {
+          const items = data.collection.items;
+          
+          items.forEach(item => {
+             const pluginData: Record<string, unknown> = {};
+             if (item.data) {
+               item.data.forEach((datum: CollectionData) => {
+                 pluginData[datum.name] = datum.value;
+               });
+             }
+             if (item.href) pluginData['url'] = item.href;
+             allPlugins.push(pluginData);
+          });
+
+          // Check for next link
+          nextUrl = null;
+          if (data.collection.links) {
+            const nextLink = data.collection.links.find(l => l.rel === 'next');
+            if (nextLink) {
+              nextUrl = nextLink.href;
+            }
+          }
+        } else {
+          break;
+        }
+      }
+
+      return allPlugins;
+
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push('error', `Error listing peer store: ${msg}`);
       return null;
     }
   }
