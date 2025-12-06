@@ -90,7 +90,7 @@ export class ChrisIO {
   async file_download(fileId: number): Promise<Buffer | null> {
     const client = await this.client_get();
     if (!client) {
-      console.error("ChRIS client is not initialized");
+      errorStack.stack_push("error", "ChRIS client is not initialized");
       return null;
     }
 
@@ -98,10 +98,18 @@ export class ChrisIO {
       const userFile: UserFile | null = await client.getUserFile(fileId);
 
       if (!userFile) {
-        throw new Error(`Failed to get file with ID ${fileId}`);
+        // This is a common case: the file ID was scraped from a listing, but
+        // the file itself is not retrievable (e.g. 404, or permissions)
+        errorStack.stack_push("error", `File ID ${fileId} not found (404) or access denied (403).`);
+        return null;
       }
 
       const blob: unknown = await userFile.getFileBlob();
+      
+      if (!blob) {
+         errorStack.stack_push("error", `File ID ${fileId} exists but returned no content/blob.`);
+         return null;
+      }
 
       if (typeof blob === "string") {
         return Buffer.from(blob);
@@ -114,10 +122,11 @@ export class ChrisIO {
         throw new Error(`Unexpected blob type: ${typeof blob}`);
       }
     } catch (error: unknown) {
+      // Catch network errors, timeouts, or specific API error messages
+      const msg = error instanceof Error ? error.message : String(error);
       errorStack.stack_push(
         "error",
-        `Failed to download file with ID ${fileId}: 
-        ${error instanceof Error ? error.message : String(error)}`
+        `Download failed for file ${fileId}: ${msg}`
       );
       return null;
     }

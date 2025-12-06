@@ -5,7 +5,7 @@ type MessageType = "error" | "warning";
 /**
  * Represents a single message in the error stack.
  */
-interface StackMessage {
+export interface StackMessage {
   type: MessageType;
   message: string;
 }
