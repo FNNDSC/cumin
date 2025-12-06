@@ -39,6 +39,15 @@ export class ChRISPluginGroup extends ChRISResourceGroup {
   }
 }
 
+/**
+ * Group handler for ChRIS plugin instances.
+ */
+export class ChRISPluginInstanceGroup extends ChRISResourceGroup {
+  constructor() {
+    super("PluginInstances", "getPluginInstances");
+  }
+}
+
 interface PreviousIDParam {
   previous_id: number;
 }
