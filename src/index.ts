@@ -22,6 +22,7 @@ export * from "./utils/keypair";
 export * from "./utils/searchable";
 export * from "./utils/result";
 export * from "./cache";
+export * from "./path/chrisPath";
 
 /**
  * Gets the ChRIS version from the given URL.

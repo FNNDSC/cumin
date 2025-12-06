@@ -204,12 +204,24 @@ export class ChRISPlugin {
       return null;
     }
     const pluginID: number = pluginList.hits[0] as number;
-    let previousID: number | null;
-    if ((previousID = await this.previousID_get()) === null) {
-      return null;
+
+    // Parse params first to check for explicit previous_id
+    const pluginParams: ChRISObjectParams = dictionary_fromCLI(params);
+
+    // Prioritize explicit previous_id from params, fall back to context
+    let previousID: number;
+    if (pluginParams.previous_id !== undefined) {
+      // Explicit value provided in params - use it!
+      previousID = Number(pluginParams.previous_id);
+    } else {
+      // Fall back to context
+      const contextPreviousID: number | null = await this.previousID_get();
+      if (contextPreviousID === null) {
+        return null;
+      }
+      previousID = contextPreviousID;
     }
 
-    const pluginParams: ChRISObjectParams = dictionary_fromCLI(params);
     try {
       const dict: Dictionary | null = this.pluginInstance_toDict(
         await this.plugin_runOnCUBE(pluginID, previousID, pluginParams)
