@@ -24,6 +24,7 @@ import {
   ChRISObjectParams,
 } from "../utils/keypair.js";
 import { errorStack } from "../error/errorStack.js";
+import { Result, Ok, Err } from "../utils/result.js";
 
 /**
  * Group handler for ChRIS feeds.
@@ -127,5 +128,165 @@ export class ChRISFeed {
       "name",
       "owner_username",
     ]);
+  }
+}
+
+/**
+ * Makes a feed public by feed ID.
+ *
+ * Retrieves the feed resource and calls its makePublic() method to change
+ * the feed's visibility to public.
+ *
+ * @param feedId - The numeric ID of the feed to make public.
+ * @returns A Result containing true on success, or an error.
+ *
+ * @example
+ * ```typescript
+ * const result = await feed_makePublic(123);
+ * if (result.ok) {
+ *   console.log("Feed is now public");
+ * }
+ * ```
+ */
+export async function feed_makePublic(feedId: number): Promise<Result<boolean>> {
+  const client: Client | null = await chrisConnection.client_get();
+  if (!client) {
+    errorStack.stack_push("error", "Not connected to ChRIS. Cannot make feed public.");
+    return Err();
+  }
+
+  try {
+    const feed: Feed | null = await client.getFeed(feedId);
+    if (!feed) {
+      errorStack.stack_push("error", `Feed with ID ${feedId} not found.`);
+      return Err();
+    }
+
+    await feed.makePublic();
+    return Ok(true);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to make feed ${feedId} public: ${msg}`);
+    return Err();
+  }
+}
+
+/**
+ * Makes a feed private by feed ID.
+ *
+ * Retrieves the feed resource and calls its makeUnpublic() method to change
+ * the feed's visibility to private (unpublish it).
+ *
+ * @param feedId - The numeric ID of the feed to make private.
+ * @returns A Result containing true on success, or an error.
+ *
+ * @example
+ * ```typescript
+ * const result = await feed_makePrivate(123);
+ * if (result.ok) {
+ *   console.log("Feed is now private");
+ * }
+ * ```
+ */
+export async function feed_makePrivate(feedId: number): Promise<Result<boolean>> {
+  const client: Client | null = await chrisConnection.client_get();
+  if (!client) {
+    errorStack.stack_push("error", "Not connected to ChRIS. Cannot make feed private.");
+    return Err();
+  }
+
+  try {
+    const feed: Feed | null = await client.getFeed(feedId);
+    if (!feed) {
+      errorStack.stack_push("error", `Feed with ID ${feedId} not found.`);
+      return Err();
+    }
+
+    await feed.makeUnpublic();
+    return Ok(true);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to make feed ${feedId} private: ${msg}`);
+    return Err();
+  }
+}
+
+/**
+ * Deletes a feed by feed ID.
+ *
+ * Retrieves the feed resource and calls its delete() method to permanently
+ * remove the feed from ChRIS.
+ *
+ * @param feedId - The numeric ID of the feed to delete.
+ * @returns A Result containing true on success, or an error.
+ *
+ * @example
+ * ```typescript
+ * const result = await feed_delete(123);
+ * if (result.ok) {
+ *   console.log("Feed deleted successfully");
+ * }
+ * ```
+ */
+export async function feed_delete(feedId: number): Promise<Result<boolean>> {
+  const client: Client | null = await chrisConnection.client_get();
+  if (!client) {
+    errorStack.stack_push("error", "Not connected to ChRIS. Cannot delete feed.");
+    return Err();
+  }
+
+  try {
+    const feed: Feed | null = await client.getFeed(feedId);
+    if (!feed) {
+      errorStack.stack_push("error", `Feed with ID ${feedId} not found.`);
+      return Err();
+    }
+
+    await feed.delete();
+    return Ok(true);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to delete feed ${feedId}: ${msg}`);
+    return Err();
+  }
+}
+
+/**
+ * Retrieves a feed resource by feed ID.
+ *
+ * Returns the raw Feed object from chrisapi for advanced operations that
+ * are not covered by the other cumin feed functions.
+ *
+ * @param feedId - The numeric ID of the feed to retrieve.
+ * @returns A Result containing the Feed resource, or an error.
+ *
+ * @example
+ * ```typescript
+ * const result = await feed_get(123);
+ * if (result.ok) {
+ *   const feed: Feed = result.value;
+ *   // Perform advanced operations with the feed
+ * }
+ * ```
+ */
+export async function feed_get(feedId: number): Promise<Result<Feed>> {
+  const client: Client | null = await chrisConnection.client_get();
+  if (!client) {
+    errorStack.stack_push("error", "Not connected to ChRIS. Cannot retrieve feed.");
+    return Err();
+  }
+
+  try {
+    const feed: Feed | null = await client.getFeed(feedId);
+    if (!feed) {
+      errorStack.stack_push("error", `Feed with ID ${feedId} not found.`);
+      return Err();
+    }
+
+    return Ok(feed);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to retrieve feed ${feedId}: ${msg}`);
+    return Err();
   }
 }

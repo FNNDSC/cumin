@@ -8,7 +8,7 @@
  * @module
  */
 
-import Client, { PluginInstance } from "@fnndsc/chrisapi";
+import Client, { PluginInstance, PluginList } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 import { chrisContext, Context } from "../context/chrisContext.js";
 import {
@@ -29,6 +29,7 @@ import {
 } from "../utils/keypair.js";
 import { Searchable } from "../utils/searchable.js";
 import { errorStack } from "../error/errorStack.js";
+import { Result, Ok, Err } from "../utils/result.js";
 
 /**
  * Group handler for ChRIS plugins.
@@ -674,5 +675,60 @@ export class ChRISPlugin {
       errorStack.stack_push('error', `Failed to get plugin compute resources: ${errorMessage}`);
       return [];
     }
+  }
+}
+
+/**
+ * Registers a plugin using the legacy non-admin PluginList._post() method.
+ *
+ * **DEPRECATED:** This method uses the legacy non-admin plugin registration endpoint
+ * which may not be available in modern ChRIS CUBE installations. Prefer using
+ * ChRISPlugin.plugin_registerWithAdmin() instead.
+ *
+ * This function is provided for backward compatibility only and will be removed
+ * in a future release.
+ *
+ * @param pluginData - Plugin descriptor data (name, dock_image, etc.).
+ * @param computeResources - Optional array of compute resource names to assign.
+ * @returns A Result containing the registered plugin data, or an error.
+ *
+ * @deprecated Use ChRISPlugin.plugin_registerWithAdmin() instead.
+ */
+export async function plugin_registerDirect(
+  pluginData: Record<string, unknown>,
+  computeResources?: string[]
+): Promise<Result<Record<string, unknown>>> {
+  const client: Client | null = await chrisConnection.client_get();
+  if (!client) {
+    errorStack.stack_push("error", "Not connected to ChRIS. Cannot register plugin.");
+    return Err();
+  }
+
+  try {
+    const pluginList: PluginList = await client.getPlugins();
+
+    // Prepare data for POST request
+    const data: Record<string, unknown> = {
+      ...pluginData,
+    };
+
+    if (computeResources && computeResources.length > 0) {
+      data.compute_resources = computeResources;
+    }
+
+    // Call the internal _post method directly (legacy API)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await (pluginList as any)._post(data);
+
+    if (response && response.data) {
+      return Ok(response.data);
+    }
+
+    errorStack.stack_push("error", "Failed to register plugin. No data in response.");
+    return Err();
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to register plugin: ${msg}`);
+    return Err();
   }
 }

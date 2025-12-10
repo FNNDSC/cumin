@@ -184,6 +184,70 @@ export class ChrisIO {
   }
 
   /**
+   * Creates a new folder in ChRIS at the specified path.
+   *
+   * @param folderPath - The path where the folder should be created.
+   * @returns A Result containing true if created, false if already exists, or Err on error.
+   *
+   * @example
+   * ```typescript
+   * const result = await chrisIO.folder_create('/uploads/data');
+   * if (result.ok && result.value) {
+   *   console.log('Folder created successfully');
+   * }
+   * ```
+   */
+  async folder_create(folderPath: string): Promise<Result<boolean>> {
+    const client: Client | null = await this.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "ChRIS client is not initialized");
+      return Err();
+    }
+
+    try {
+      // Get the FileBrowserFolderList resource
+      const folderList = await client.getFileBrowserFolders();
+
+      // Use the post method to create the new folder
+      const response = await folderList.post({ path: folderPath });
+
+      if (response && response.data) {
+        return Ok(true); // Folder created successfully
+      } else {
+        errorStack.stack_push("error", `Failed to create folder: ${folderPath}. No data in response.`);
+        return Err();
+      }
+    } catch (error: unknown) {
+      // Check if this is an "already exists" error (400 status with specific message)
+      if (
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        error.response &&
+        typeof error.response === 'object' &&
+        'status' in error.response &&
+        error.response.status === 400 &&
+        'data' in error.response &&
+        error.response.data &&
+        typeof error.response.data === 'object' &&
+        'path' in error.response.data &&
+        Array.isArray(error.response.data.path) &&
+        error.response.data.path[0] &&
+        typeof error.response.data.path[0] === 'string' &&
+        error.response.data.path[0].includes('already exists')
+      ) {
+        errorStack.stack_push("warning", `Folder '${folderPath}' already exists.`);
+        return Ok(false); // Return false to indicate folder already existed
+      }
+
+      // Other errors
+      const errorMessage: string = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push("error", `Error creating folder '${folderPath}': ${errorMessage}`);
+      return Err();
+    }
+  }
+
+  /**
    * Moves (renames) a folder in ChRIS by updating its path.
    * @param srcPath - The current folder path.
    * @param destPath - The new folder path.

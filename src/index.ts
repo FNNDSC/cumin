@@ -15,6 +15,8 @@ export * from "./resources/chrisObjContext";
 export * from "./resources/chrisEmbeddedResourceGroup";
 export * from "./filebrowser/chrisFileBrowser";
 export * from "./filebrowser/chrisFiles";
+export * from "./filebrowser/chrisPACS";
+export * from "./filebrowser/chrisPipeline";
 export * from "./io/chrisIO";
 export * from "./io/io";
 export * from "./io/node_io";

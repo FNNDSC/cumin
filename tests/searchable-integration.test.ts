@@ -10,6 +10,9 @@ import { Searchable } from '../src/utils/searchable';
 import { ChRISPlugin } from '../src/plugins/chrisPlugins';
 import { QueryHits } from '../src/utils/keypair';
 
+// Don't mock the ChRISPlugin module - we want to test the real methods
+// jest.mock('../src/plugins/chrisPlugins');
+
 // Mock the ChRIS connection
 jest.mock('../src/connect/chrisConnection', () => ({
   chrisConnection: {

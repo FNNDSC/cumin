@@ -6,7 +6,10 @@ jest.mock('../src/plugins/chrisPlugins', () => ({
     pluginIDs_getFromSearchable: jest.fn().mockResolvedValue({
       hits: [123]
     })
-  }))
+  })),
+  ChRISPluginGroup: jest.fn(),
+  ChRISPluginInstanceGroup: jest.fn(),
+  plugin_registerDirect: jest.fn()
 }));
 
 describe('chrisContextURL_parse()', () => {

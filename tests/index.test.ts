@@ -1,8 +1,14 @@
 import { jest } from "@jest/globals";
+
+// Mock modules BEFORE importing anything else
+jest.mock("@fnndsc/chrisapi", () => ({
+  default: jest.fn()
+}));
+jest.mock("../src/filebrowser/chrisPACS");
+jest.mock("../src/filebrowser/chrisPipeline");
+
 import { getChrisVersion } from "../src/index.js";
 import Client from "@fnndsc/chrisapi";
-
-jest.mock("@fnndsc/chrisapi");
 
 describe("cumin utilities", () => {
   it("should get ChRIS version", async () => {

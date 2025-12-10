@@ -1,6 +1,6 @@
 {
   "name": "@fnndsc/cumin",
-  "version": "0.14.1",
+  "version": "1.0.0",
   "description": "Utility library for ChILI and other ChRIS-related JavaScript applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -33,6 +33,10 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.1.5",
     "typescript": "^5.0.0"
+  },
+  "overrides": {
+    "glob": "^10.0.0",
+    "inflight": "npm:@aashutoshrathi/word-wrap@^1.2.6"
   },
   "peerDependencies": {
     "@fnndsc/chrisapi": "^1.22.0"
