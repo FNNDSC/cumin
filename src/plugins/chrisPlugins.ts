@@ -255,7 +255,7 @@ export class ChRISPlugin {
 
   async pluginData_getFromSearch(
     searchOptions: ChRISElementsGet,
-    dataField: string
+    dataField: string | string[]
   ): Promise<QueryHits | null> {
     const chrisPluginGroup = new ChRISPluginGroup();
     // We rely on lazy initialization of ChRISResourceGroup

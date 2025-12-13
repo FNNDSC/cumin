@@ -151,18 +151,33 @@ export function params_fromOptions(
 }
 
 /**
- * Extract a specific field from a list of records into a QueryHits object.
+ * Extract a specific field or fields from a list of records into a QueryHits object.
  *
  * @param arrayList - The list of records.
- * @param record - The field name to extract from each record.
+ * @param record - The field name or an array of field names to extract from each record.
  * @returns A QueryHits object containing the extracted values.
  */
 export function record_extract(
   arrayList: Array<Record<string, unknown>>,
-  record: string
+  record: string | string[]
 ): QueryHits {
-  const queryHits: QueryHits = {
-    hits: arrayList.map((item) => item[record]),
-  };
-  return queryHits;
+  if (typeof record === 'string') {
+    const queryHits: QueryHits = {
+      hits: arrayList.map((item) => item[record]),
+    };
+    return queryHits;
+  } else {
+    const queryHits: QueryHits = {
+      hits: arrayList.map((item) => {
+        const extracted: Record<string, unknown> = {};
+        record.forEach(key => {
+          if (item[key] !== undefined) {
+            extracted[key] = item[key];
+          }
+        });
+        return extracted;
+      }),
+    };
+    return queryHits;
+  }
 }

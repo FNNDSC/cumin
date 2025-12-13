@@ -1,16 +1,6 @@
+import baseConfig from '../jest.config.base.mjs';
+
 export default {
-  preset: "ts-jest/presets/default-esm",
-  extensionsToTreatAsEsm: [".ts"],
-  moduleNameMapper: {
-    "^(\.{1,2}/.*)\\.js$": "$1",
-  },
-  transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
-      {
-        useESM: true,
-      },
-    ],
-  },
-  testEnvironment: "node",
+  ...baseConfig,
+  // Cumin-specific overrides can go here
 };

@@ -14,6 +14,7 @@ import { QueryHits } from "../utils/keypair.js";
 import { Searchable } from "../utils/searchable.js";
 import { ChRISPlugin } from "../plugins/chrisPlugins.js";
 import { listCache_get } from "../cache/index.js";
+import { errorStack } from "../error/errorStack.js";
 
 /**
  * Enum defining the types of context available in ChRIS.
@@ -136,11 +137,12 @@ async function searchable_toID(searchable: string | Searchable): Promise<string 
   const ids: QueryHits | null = await plugin.pluginIDs_getFromSearchable(
     searchableObj
   );
-  if (ids) {
+  if (ids && ids.hits.length > 0) {
     const id: number = ids.hits[0] as number;
     const ID: string = id.toString();
     return ID;
   }
+  errorStack.stack_push('error', `Could not resolve searchable "${searchable}" to a plugin ID.`);
   return null;
 }
 
@@ -321,7 +323,6 @@ export class ChrisContext {
    */
   async current_set(context: Context, value: string): Promise<boolean> {
     let status: boolean = false;
-    await this.currentContext_update();
     switch (context) {
       case Context.ChRISuser:
         this._singleContext.user = value;

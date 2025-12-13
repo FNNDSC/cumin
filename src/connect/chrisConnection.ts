@@ -18,6 +18,8 @@ import {
   chrisContext,
 } from "../context/chrisContext.js";
 import { IStorageProvider } from "../io/io.js";
+import { errorStack } from "../error/errorStack.js";
+import chalk from "chalk";
 
 /**
  * Re-exports the ChRIS API client for convenience.
@@ -154,9 +156,16 @@ export class ChRISConnection {
    * @returns A Promise resolving to true on success, false otherwise.
    */
   async context_set(context: string): Promise<boolean> {
-    const currentContext: SingleContext = await chrisContext.currentContext_update(); // Await this call
     context = contextString_check(context);
     const parsedContext: SingleContext = await chrisContextURL_parse(context);
+
+    if (errorStack.messagesOfType_has('error')) {
+      const error = errorStack.stack_pop();
+      console.error(chalk.red('Context error:', error?.message));
+      // Clear any remaining errors to prevent them from affecting subsequent operations
+      errorStack.type_clear('error');
+      return false;
+    }
 
     let status: boolean = true;
     let needsRefresh: boolean = false;
@@ -177,7 +186,6 @@ export class ChRISConnection {
       status =
         status && (await chrisContext.current_set(Context.ChRISURL, parsedContext.URL)); // Await this call
       this.chrisURL = parsedContext.URL;
-      this.user = currentContext.user;
       needsRefresh = true;
       await this._config!.context_set(this.user || "", parsedContext.URL);
     }
