@@ -1,6 +1,6 @@
 {
   "name": "@fnndsc/cumin",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Utility library for ChILI and other ChRIS-related JavaScript applications",
   "main": "dist/index.js",
   "module": "dist/index.js",
