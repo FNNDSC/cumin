@@ -26,6 +26,22 @@ export * from "./utils/result";
 export * from "./cache";
 export * from "./path/chrisPath";
 
+// Re-export chrisapi types so downstream packages don't import chrisapi directly
+export type {
+  FileBrowserFolder,
+  Plugin,
+  PluginInstance,
+  Feed,
+  PACSFile,
+  UserFile,
+  ComputeResourceList,
+  PipelineSourceFile,
+  PipelineSourceFileList,
+  ListResource,
+  ItemResource,
+  Resource,
+} from "@fnndsc/chrisapi";
+
 /**
  * Gets the ChRIS version from the given URL.
  *
