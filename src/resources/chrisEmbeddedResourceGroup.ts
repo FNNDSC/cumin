@@ -8,7 +8,6 @@
  */
 
 import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
-import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 import { errorStack } from "../error/errorStack.js";
 import Client from "@fnndsc/chrisapi";
@@ -67,9 +66,7 @@ function context_split(context: unknown, delimiter: string = ":"): ContextSpec {
 /**
  * Parameters for creating a ChRISEmbeddedResourceGroup.
  */
-export interface ChRISEmbeddedResourceGroupParams<
-  T extends FileBrowserFolder | Plugin | Feed
-> {
+export interface ChRISEmbeddedResourceGroupParams<T = unknown> {
   resourceName: string;
   getMethod: string;
   chrisContext: T;
@@ -79,9 +76,7 @@ export interface ChRISEmbeddedResourceGroupParams<
 /**
  * Group of ChRIS resources embedded within a specific context.
  */
-export class ChRISEmbeddedResourceGroup<
-  T extends FileBrowserFolder | Plugin | Feed
-> extends ChRISResourceGroup {
+export class ChRISEmbeddedResourceGroup<T = unknown> extends ChRISResourceGroup {
   public readonly context: string;
   public readonly chrisContextObj: T;
 
@@ -91,7 +86,7 @@ export class ChRISEmbeddedResourceGroup<
     this.chrisContextObj = params.chrisContext;
   }
 
-  public static async create<T extends FileBrowserFolder | Plugin | Feed>(
+  public static async create<T = unknown>(
     resourceName: string,
     getMethod: string,
     context: string
@@ -126,9 +121,7 @@ export class ChRISEmbeddedResourceGroup<
     }
   }
 
-  private static async context_init<
-    T extends FileBrowserFolder | Plugin | Feed
-  >(context: string): Promise<T | null> {
+  private static async context_init<T = unknown>(context: string): Promise<T | null> {
     const client: Client | null = await chrisConnection.client_get();
     if (!client) {
       throw new ChRISConnectionError("ChRIS client is not initialized");

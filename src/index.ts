@@ -27,20 +27,20 @@ export * from "./cache";
 export * from "./path/chrisPath";
 
 // Re-export chrisapi types so downstream packages don't import chrisapi directly
-export type {
-  FileBrowserFolder,
-  Plugin,
-  PluginInstance,
-  Feed,
-  PACSFile,
-  UserFile,
-  ComputeResourceList,
-  PipelineSourceFile,
-  PipelineSourceFileList,
-  ListResource,
-  ItemResource,
-  Resource,
-} from "@fnndsc/chrisapi";
+export interface ChrisPathNode {
+  path: string;
+  fname?: string;
+  fsize?: number;
+  id?: number;
+  isDir?: boolean;
+  isLink?: boolean;
+  linkTarget?: string;
+}
+
+export interface ChrisPluginSummary {
+  id?: number;
+  name?: string;
+}
 
 /**
  * Gets the ChRIS version from the given URL.

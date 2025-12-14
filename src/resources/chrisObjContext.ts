@@ -1,8 +1,7 @@
 import { ChRISEmbeddedResourceGroup } from "./chrisEmbeddedResourceGroup.js";
-import { FileBrowserFolder, Plugin, Feed } from "@fnndsc/chrisapi";
 import { errorStack } from "../error/errorStack.js";
 
-type ChRISResourceType = FileBrowserFolder | Plugin | Feed;
+type ChRISResourceType = unknown;
 
 interface ObjContextConfig {
   name: string;
