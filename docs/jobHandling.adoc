@@ -1,0 +1,70 @@
+= Job Handling and PluginInstance Tracking
+:toc:
+:toclevels: 2
+:sectnums:
+
+== Overview
+
+ChRIS “jobs” are represented by **PluginInstance** resources in the `@fnndsc/chrisapi` client. The SDK exposes no separate job wrapper or status helper—the execution state lives on each PluginInstance item and must be polled to refresh. This document summarizes the available surfaces for status, listing, cancellation, and related data so consumers (e.g., chell’s future `job` builtin) can build user-facing job flows.
+
+== Core Resource (PluginInstance)
+
+* Class: `PluginInstance` (`src/plugininstance.js`), extends `ItemResource`.
+* Fetch/refresh: `.get()` populates `pluginInstance.data`.
+* Execution fields live in `data`: `status`, `start_date`, `end_date`, `plugin_*` metadata, `previous_id`, `feed_id`, `owner_username`, resource limits, etc.
+* Status lifecycle: strings passed through from backend; no enum in SDK. Cancellation is via `.put({ status: 'cancelled' })`.
+* Links:
+** `getComputeResource()`, `getOutputFolder()`, `getPlugin()`, `getFeed()`, `getWorkflow()`
+** `getPreviousPluginInstance()` (parent), `getDescendantPluginInstances()` (children)
+** `getParameters()` (run parameters), `getSplits()` (output splits)
+* Mutation: `.put(data)` to update fields (e.g., status/title); `.delete()` to remove instance.
+
+== Listing and Filtering
+
+Lists all extend `ListResource` and return items with populated `data`; paging helpers (next/prev) are inherited.
+
+* `AllPluginInstanceList` (global)
+* `FeedPluginInstanceList` (per feed)
+* `PluginInstanceList` (per plugin)
+* `WorkflowPluginInstanceList` (per workflow)
+* `PluginInstanceDescendantList` (descendants of a node)
+
+=== Search Parameters (Client.getPluginInstances)
+
+* Identity: `id`, `root_id`, `previous_id`, `feed_id`, `workflow_id`, `plugin_id`
+* Ownership/metadata: `owner_username`, `title`, `plugin_name`, `plugin_name_exact`, `plugin_version`, `plugin_type`
+* Status/time: `status`, `min_start_date`, `max_start_date`, `min_end_date`, `max_end_date`
+* Paging: `limit`, `offset`
+
+== Access Paths
+
+* High-level global: `client.getPluginInstances(searchParams)` → `AllPluginInstanceList`
+* Convenience: `client.getPluginInstance(id)` (internally filters list by `id`)
+* Scoped lists:
+** `plugin.getPluginInstances()`
+** `feed.getPluginInstances()`
+** `workflow.getPluginInstances()`
+** `pluginInstance.getDescendantPluginInstances()`
+
+== Creation
+
+* `client.createPluginInstance(pluginId, data)` posts to the plugin’s `instances` link and returns the created `PluginInstance` (already populated with `data.status`, etc.).
+* Parameters include `previous_id`, optional titles, compute resource name, and resource limits (`cpu_limit`, `memory_limit`, `number_of_workers`, `gpu_limit`).
+
+== Cancellation
+
+* Set status to `cancelled` via `pluginInstance.put({ status: 'cancelled' })`.
+* No dedicated “cancel” helper or log streaming API in the SDK; callers must poll status.
+
+== Polling Pattern (for a job builtin)
+
+1. Ensure `pluginInstancesUrl` is initialized (call `client.setUrls()` or `client.getFeeds()` once).
+2. For a given ID, call `client.getPluginInstance(id)` and read `data.status`, `start_date`, `end_date`, etc.
+3. For dashboards, prefer server-side filters (e.g., `status`, `owner_username`, `plugin_name`, date ranges) via `getPluginInstances`.
+4. Refresh by re-fetching the instance or list; SDK has no push/streaming support.
+
+== Related Artifacts
+
+* **Splits:** `PluginInstanceSplit` / `PluginInstanceSplitList` (output directory splits), each linked back via `getPluginInstance()`.
+* **Parameters:** `PluginInstanceParameter` / `PluginInstanceParameterList` (run parameters).
+* **DAG Navigation:** `getPreviousPluginInstance()` and `getDescendantPluginInstances()` enable graph traversal from an instance.

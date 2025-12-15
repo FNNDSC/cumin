@@ -113,6 +113,9 @@ export class ChrisIO {
 
       if (typeof blob === "string") {
         return Buffer.from(blob);
+      } else if (Buffer.isBuffer(blob)) {
+        // Already a Node.js Buffer
+        return blob;
       } else if (blob instanceof ArrayBuffer) {
         return Buffer.from(blob);
       } else if (blob instanceof Blob) {
