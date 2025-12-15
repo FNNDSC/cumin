@@ -83,6 +83,60 @@ export class ChrisIO {
   }
 
   /**
+   * Downloads a file from ChRIS by its ID as a stream (Node) or blob (browser).
+   * Returns the raw response data plus optional size metadata when available.
+   *
+   * @param fileId - The ID of the file to download.
+   * @returns A Result containing the stream/blob and optional size metadata.
+   */
+  async file_downloadStream(
+    fileId: number
+  ): Promise<Result<{ stream: any; size?: number; filename?: string }>> {
+    const client: Client | null = await this.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "ChRIS client is not initialized");
+      return Err();
+    }
+
+    try {
+      const userFile: UserFile | null = await client.getUserFile(fileId);
+
+      if (!userFile) {
+        errorStack.stack_push(
+          "error",
+          `File ID ${fileId} not found (404) or access denied (403).`
+        );
+        return Err();
+      }
+
+      const response: any = await (userFile as any).getFileStream();
+      if (!response || response.data === undefined) {
+        errorStack.stack_push("error", `File ID ${fileId} returned no data.`);
+        return Err();
+      }
+
+      const lengthHeader: string | undefined | number =
+        response.headers?.["content-length"] ||
+        response.headers?.["Content-Length"];
+      const size: number | undefined =
+        typeof lengthHeader === "string" ? parseInt(lengthHeader, 10) : undefined;
+
+      return Ok({
+        stream: response.data,
+        size: Number.isFinite(size) ? size : undefined,
+        filename: (userFile as any).data?.fname as string | undefined,
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      errorStack.stack_push(
+        "error",
+        `Download stream failed for file ${fileId}: ${msg}`
+      );
+      return Err();
+    }
+  }
+
+  /**
    * Downloads a file from ChRIS by its ID.
    * @param fileId - The ID of the file to download.
    * @returns A Promise resolving to a Buffer of the file content, or null on failure.
