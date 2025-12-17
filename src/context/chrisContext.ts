@@ -25,6 +25,7 @@ export enum Context {
   ChRISfolder = "folder",
   ChRISfeed = "feed",
   ChRISplugin = "plugin",
+  PACSserver = "pacsserver",
 }
 
 /**
@@ -34,6 +35,7 @@ export interface URLContext {
   folder: string | null;
   feed: string | null;
   plugin: string | null;
+  pacsserver: string | null;
   token: string | null;
 }
 
@@ -81,6 +83,7 @@ export async function chrisContextURL_parse(
     folder: null,
     feed: null,
     plugin: null,
+    pacsserver: null,
     token: null,
   };
 
@@ -162,6 +165,7 @@ export class ChrisContext {
     folder: null,
     feed: null,
     plugin: null,
+    pacsserver: null,
     token: null,
   };
 
@@ -232,6 +236,9 @@ export class ChrisContext {
           plugin: await storage.read(
             path.join(userDir, urlDir, sessionConfig.pluginFile)
           ),
+          pacsserver: await storage.read(
+            path.join(userDir, urlDir, sessionConfig.pacsserverFile)
+          ),
           token: await storage.read(
             path.join(userDir, urlDir, sessionConfig.connection.tokenFile)
           ),
@@ -280,6 +287,14 @@ export class ChrisContext {
     return sessionConfig.pluginContext_get();
   }
 
+  async PACSserver_set(server: string): Promise<boolean> {
+    return sessionConfig.pacsserverContext_set(server);
+  }
+
+  async PACSserver_get(): Promise<string | null> {
+    return sessionConfig.pacsserverContext_get();
+  }
+
   async folderpath_get(): Promise<string | null> {
     return sessionConfig.pathContext_get();
   }
@@ -290,6 +305,7 @@ export class ChrisContext {
     this._singleContext.folder = await this.ChRISfolder_get();
     this._singleContext.feed = await this.ChRISfeed_get();
     this._singleContext.plugin = await this.ChRISplugin_get();
+    this._singleContext.pacsserver = await this.PACSserver_get();
     return this._singleContext;
   }
 
@@ -311,6 +327,8 @@ export class ChrisContext {
         return this._singleContext.feed;
       case Context.ChRISplugin:
         return this._singleContext.plugin;
+      case Context.PACSserver:
+        return this._singleContext.pacsserver;
     }
     return null;
   }
@@ -346,6 +364,10 @@ export class ChrisContext {
       case Context.ChRISplugin:
         this._singleContext.plugin = value;
         status = await this.ChRISplugin_set(value);
+        break;
+      case Context.PACSserver:
+        this._singleContext.pacsserver = value;
+        status = await this.PACSserver_set(value);
         break;
     }
     await sessionConfig.connection.init();

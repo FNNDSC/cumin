@@ -33,6 +33,8 @@ export interface SessionConfigOptions {
   feedFilename?: string;
   pluginFile?: string;
   pluginFilename?: string;
+  pacsserverFile?: string;
+  pacsserverFilename?: string;
   storageProvider?: IStorageProvider; // Add storageProvider to options
 }
 
@@ -276,6 +278,8 @@ export class SessionConfig {
   public feedFilename: string;
   public pluginFile: string;
   public pluginFilename: string;
+  public pacsserverFile: string;
+  public pacsserverFilename: string;
   private connectionConfig: ConnectionConfig;
   private storageProvider: IStorageProvider;
 
@@ -290,6 +294,8 @@ export class SessionConfig {
     this.feedFilename = options.feedFilename || "";
     this.pluginFile = options.pluginFile || "plugin.txt";
     this.pluginFilename = options.pluginFilename || "";
+    this.pacsserverFile = options.pacsserverFile || "pacsserver.txt";
+    this.pacsserverFilename = options.pacsserverFilename || "";
     this.connectionConfig = connectionConfig;
     this.storageProvider = storageProvider;
   }
@@ -337,6 +343,10 @@ export class SessionConfig {
     this.pluginFilename = path.join(
       this.connectionConfig.userChRISContextDir,
       this.pluginFile
+    );
+    this.pacsserverFilename = path.join(
+      this.connectionConfig.userChRISContextDir,
+      this.pacsserverFile
     );
   }
 
@@ -398,6 +408,26 @@ export class SessionConfig {
    */
   public async pluginContext_get(): Promise<string | null> {
     return this.storageProvider.read(this.pluginFilename);
+  }
+
+  /**
+   * Set the active PACS server context.
+   *
+   * @param pacsServer - The PACS server identifier.
+   * @returns True if successful.
+   */
+  public async pacsserverContext_set(pacsServer: string): Promise<boolean> {
+    await this.storageProvider.write(this.pacsserverFilename, pacsServer);
+    return true;
+  }
+
+  /**
+   * Get the active PACS server context.
+   *
+   * @returns The saved PACS server identifier or null if not found.
+   */
+  public async pacsserverContext_get(): Promise<string | null> {
+    return this.storageProvider.read(this.pacsserverFilename);
   }
 }
 

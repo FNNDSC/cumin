@@ -1,0 +1,61 @@
+= PACS Support in Cumin
+:toc:
+:toclevels: 2
+:sectnums:
+
+== Overview
+
+`cumin` is the infrastructure layer; its PACS helpers are deliberately minimal and silent. They wrap the ChRIS CUBE PACS endpoints, normalize responses into typed records, and surface failures through `Result<T>` plus `errorStack`. There is no console output here—callers decide how to present data. Think of this as the “plumbing” that higher layers use to issue queries, resolve servers, and decode payloads.
+
+== Capabilities
+
+- **List PACS servers**: `pacsServers_list(options?: PACSServerListOptions)` → `Result<PACSServer[]>`
+- **Resolve PACS server**: `pacsServer_resolve(pacsserver: string)` → `Result<{ id: number; identifier?: string }>` (accepts id or identifier; errors on ambiguity)
+- **List PACS queries**: `pacsQueries_list(options?: PACSQueryListOptions)` → `Result<FilteredResourceData | null>`
+- **Create PACS query**: `pacsQueries_create(pacsserver: string, data: PACSQueryCreateData)` → `Result<PACSQueryRecord>`
+- **Decode PACS query result**: `pacsQuery_resultDecode(queryId: number)` → `Result<PACSQueryDecodedResult>`
+
+== Data Shapes
+
+- `PACSServer`: `{ id: number; identifier?: string; name?: string; description?: string; ... }`
+- `PACSServerListOptions`: `{ identifier?: string; limit?: number; offset?: number; ... }`
+- `PACSQueryListOptions`: standard list options plus `pacs_id?`, `pacs_identifier?`
+- `PACSQueryCreateData`: `{ title: string; query: string; description?: string }` (query is JSON string of DICOM tag filters)
+- `PACSQueryRecord`: `{ id: number; title?: string; status?: string; pacs_id?: number; result?: unknown; ... }`
+- `PACSQueryDecodedResult`: `{ raw: string; base64Decoded?; zlibDecoded?; gzipDecoded?; text?; json? }`
+
+== Behaviors and Guarantees
+
+- All functions require an active CUBE connection; otherwise they return `Err()` and push a descriptive error.
+- Server resolution is explicit: numeric strings become IDs; identifiers are looked up with ambiguity checks.
+- Query creation leaves the raw PACS query string untouched—callers must supply JSON/DICOM tag filters.
+- Result decoding is best-effort: base64 → zlib/gzip → UTF-8 → JSON. Failures stay silent except for `errorStack`.
+- No logging is performed; the calling layer owns presentation.
+
+== Usage Patterns
+
+```typescript
+import {
+  pacsServers_list,
+  pacsServer_resolve,
+  pacsQueries_create,
+  pacsQueries_list,
+  pacsQuery_resultDecode,
+} from "@fnndsc/cumin";
+
+const servers = await pacsServers_list();
+if (servers.ok) console.log(servers.value);
+
+const resolved = await pacsServer_resolve("PACSDCM");
+if (!resolved.ok) return;
+
+const created = await pacsQueries_create("PACSDCM", {
+  title: "PID 4456554",
+  query: JSON.stringify({ PatientID: "4456554" }),
+});
+
+const decoded = await pacsQuery_resultDecode(created.ok ? created.value.id : 0);
+if (decoded.ok && decoded.value.json) {
+  console.log(decoded.value.json);
+}
+```
