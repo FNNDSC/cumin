@@ -9,13 +9,24 @@
 
 == Capabilities
 
+=== PACS Server & Query Operations
+
 - **List PACS servers**: `pacsServers_list(options?: PACSServerListOptions)` → `Result<PACSServer[]>`
 - **Resolve PACS server**: `pacsServer_resolve(pacsserver: string)` → `Result<{ id: number; identifier?: string }>` (accepts id or identifier; errors on ambiguity)
 - **List PACS queries**: `pacsQueries_list(options?: PACSQueryListOptions)` → `Result<FilteredResourceData | null>`
 - **Create PACS query**: `pacsQueries_create(pacsserver: string, data: PACSQueryCreateData)` → `Result<PACSQueryRecord>`
 - **Decode PACS query result**: `pacsQuery_resultDecode(queryId: number)` → `Result<PACSQueryDecodedResult>`
 
+=== PACS Retrieve Operations
+
+- **Create PACS retrieve**: `pacsRetrieve_create(queryId: number)` → `Result<PACSRetrieveRecord>` (triggers external service to pull DICOM data from PACS to ChRIS)
+- **List PACS retrieves**: `pacsRetrieves_list(queryId: number, options?: ListOptions)` → `Result<PACSRetrieveRecord[]>` (get all retrieves for a query)
+- **Delete PACS retrieve**: `pacsRetrieve_delete(retrieveId: number)` → `Result<void>` (cancel an in-progress retrieve)
+- **Generate status report**: `pacsRetrieve_statusForQuery(queryId: number)` → `Result<PACSQueryStatusReport>` (combines query decode with file counts to show series-level progress)
+
 == Data Shapes
+
+=== Query-Related Types
 
 - `PACSServer`: `{ id: number; identifier?: string; name?: string; description?: string; ... }`
 - `PACSServerListOptions`: `{ identifier?: string; limit?: number; offset?: number; ... }`
@@ -24,7 +35,17 @@
 - `PACSQueryRecord`: `{ id: number; title?: string; status?: string; pacs_id?: number; result?: unknown; ... }`
 - `PACSQueryDecodedResult`: `{ raw: string; base64Decoded?; zlibDecoded?; gzipDecoded?; text?; json? }`
 
+=== Retrieve-Related Types
+
+- `PACSRetrieveRecord`: `{ id: number; pacs_query_id?: number; status?: string; creation_date?: string; ... }`
+  - Status values: `"created"` (initial), `"sent"` (in progress), `"succeeded"` (complete), `"errored"` (failed)
+- `SeriesRetrieveStatus`: `{ seriesInfo: Record; seriesInstanceUID: string; seriesDescription?: string; expectedFiles: number; actualFiles: number; status: "pending" | "pulling" | "pulled" | "error" }`
+- `StudyRetrieveStatus`: `{ studyInfo: Record; studyInstanceUID?: string; studyDescription?: string; series: SeriesRetrieveStatus[] }`
+- `PACSQueryStatusReport`: `{ queryId: number; retrieveStatus?: string; retrieveId?: number; studies: StudyRetrieveStatus[] }`
+
 == Behaviors and Guarantees
+
+=== General
 
 - All functions require an active CUBE connection; otherwise they return `Err()` and push a descriptive error.
 - Server resolution is explicit: numeric strings become IDs; identifiers are looked up with ambiguity checks.
@@ -32,14 +53,27 @@
 - Result decoding is best-effort: base64 → zlib/gzip → UTF-8 → JSON. Failures stay silent except for `errorStack`.
 - No logging is performed; the calling layer owns presentation.
 
+=== Retrieve-Specific
+
+- `pacsRetrieve_create()` triggers an external service to pull DICOM data from PACS to ChRIS; the retrieve happens asynchronously.
+- `pacsRetrieves_list()` returns all retrieve records for a query, ordered by creation date.
+- `pacsRetrieve_delete()` cancels a retrieve; partially-pulled data may remain in ChRIS.
+- `pacsRetrieve_statusForQuery()` performs complex correlation:
+  - Decodes query result to get expected series and file counts
+  - Queries PACSSeries by SeriesInstanceUID to find folder paths
+  - Counts PACSFiles in each folder to determine actual file counts
+  - Computes status: `pending` (0 files), `pulling` (partial), `pulled` (complete), `error` (count mismatch)
+- DICOM tag objects `{label, value}` are automatically extracted to their primitive values.
+
 == Usage Patterns
+
+=== Basic Query Workflow
 
 ```typescript
 import {
   pacsServers_list,
   pacsServer_resolve,
   pacsQueries_create,
-  pacsQueries_list,
   pacsQuery_resultDecode,
 } from "@fnndsc/cumin";
 
@@ -57,5 +91,37 @@ const created = await pacsQueries_create("PACSDCM", {
 const decoded = await pacsQuery_resultDecode(created.ok ? created.value.id : 0);
 if (decoded.ok && decoded.value.json) {
   console.log(decoded.value.json);
+}
+```
+
+=== Retrieve Workflow with Progress Monitoring
+
+```typescript
+import {
+  pacsRetrieve_create,
+  pacsRetrieve_statusForQuery,
+  pacsRetrieves_list,
+} from "@fnndsc/cumin";
+
+// Trigger retrieve
+const retrieve = await pacsRetrieve_create(queryId);
+if (!retrieve.ok) return;
+
+console.log(`Created retrieve ${retrieve.value.id}`);
+
+// Check status
+const status = await pacsRetrieve_statusForQuery(queryId);
+if (status.ok) {
+  for (const study of status.value.studies) {
+    for (const series of study.series) {
+      console.log(`${series.seriesDescription}: ${series.status} (${series.actualFiles}/${series.expectedFiles})`);
+    }
+  }
+}
+
+// List all retrieves for this query
+const retrieves = await pacsRetrieves_list(queryId);
+if (retrieves.ok) {
+  console.log(`Found ${retrieves.value.length} retrieves`);
 }
 ```

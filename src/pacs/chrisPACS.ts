@@ -318,3 +318,375 @@ export async function pacsQuery_resultDecode(
     return Err();
   }
 }
+
+/**
+ * Minimal shape of a PACS retrieve record.
+ */
+export interface PACSRetrieveRecord {
+  id: number;
+  pacs_query_id?: number;
+  status?: string;
+  creation_date?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Group handler for PACS retrieves.
+ */
+export class ChRISPACSRetrieveGroup extends ChRISResourceGroup {
+  constructor() {
+    super("PACSRetrieves", "getPACSRetrieves");
+  }
+}
+
+/**
+ * Create a PACS retrieve for a given query.
+ * This triggers the external service to pull DICOM data from PACS to ChRIS.
+ *
+ * @param queryId - PACS query ID to retrieve data for.
+ * @returns Result containing a PACSRetrieveRecord or Err.
+ */
+export async function pacsRetrieve_create(
+  queryId: number
+): Promise<Result<PACSRetrieveRecord>> {
+  try {
+    const client: Client | null = await chrisConnection.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "Not connected to ChRIS. Please log in.");
+      return Err();
+    }
+
+    const retrieve = await client.createPACSRetrieve(queryId);
+    const record: PACSRetrieveRecord = {
+      id: retrieve.data?.id as number,
+      pacs_query_id: queryId,
+      status: retrieve.data?.status as string,
+      creation_date: retrieve.data?.creation_date as string,
+    };
+    return Ok(record);
+  } catch (error: unknown) {
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to create PACS retrieve for query ${queryId}: ${errorMessage}`);
+    return Err();
+  }
+}
+
+/**
+ * List all retrieves for a given PACS query.
+ *
+ * @param queryId - PACS query ID.
+ * @param options - Optional list options.
+ * @returns Result containing an array of PACSRetrieveRecord or Err.
+ */
+export async function pacsRetrieves_list(
+  queryId: number,
+  options: ListOptions = {}
+): Promise<Result<PACSRetrieveRecord[]>> {
+  try {
+    const client: Client | null = await chrisConnection.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "Not connected to ChRIS. Please log in.");
+      return Err();
+    }
+
+    const query = await client.getPACSQuery(queryId);
+    if (!query || !query.data) {
+      errorStack.stack_push("error", `PACS query ${queryId} not found.`);
+      return Err();
+    }
+
+    const retrieveList = await query.getRetrieves(options);
+    const items = retrieveList.getItems();
+
+    if (!items) {
+      return Ok([]);
+    }
+
+    const records: PACSRetrieveRecord[] = items.map((item: any): PACSRetrieveRecord => ({
+      id: item.data?.id as number,
+      pacs_query_id: item.data?.pacs_query_id as number,
+      status: item.data?.status as string,
+      creation_date: item.data?.creation_date as string,
+    }));
+
+    return Ok(records);
+  } catch (error: unknown) {
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to list PACS retrieves for query ${queryId}: ${errorMessage}`);
+    return Err();
+  }
+}
+
+/**
+ * Delete (cancel) a PACS retrieve.
+ *
+ * @param retrieveId - PACS retrieve ID to delete.
+ * @returns Result containing void or Err.
+ */
+export async function pacsRetrieve_delete(
+  retrieveId: number
+): Promise<Result<void>> {
+  try {
+    const client: Client | null = await chrisConnection.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "Not connected to ChRIS. Please log in.");
+      return Err();
+    }
+
+    // Use the ChRIS API to delete the retrieve
+    // The API typically has endpoints like /api/v1/pacsfiles/retrieves/{id}/
+    // We need to construct the URL and make a DELETE request
+    // For now, use a simple approach: we know retrieves exist, so direct delete via constructed object
+
+    // Note: This is a simplified implementation
+    // In a production system, you'd want to verify the retrieve exists first
+    const baseUrl = (client as any).auth?.cubeUrl || "";
+    if (!baseUrl) {
+      errorStack.stack_push("error", "Could not determine CUBE URL for delete operation.");
+      return Err();
+    }
+
+    const retrieveUrl = `${baseUrl}api/v1/pacsfiles/retrieves/${retrieveId}/`;
+    const PACSRetrieve = (await import("@fnndsc/chrisapi")).PACSRetrieve;
+    const retrieve = new PACSRetrieve(retrieveUrl, (client as any).auth);
+
+    await retrieve.delete();
+    return Ok(undefined);
+  } catch (error: unknown) {
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to delete PACS retrieve ${retrieveId}: ${errorMessage}`);
+    return Err();
+  }
+}
+
+/**
+ * Status of a single series in the retrieve process.
+ */
+export interface SeriesRetrieveStatus {
+  seriesInfo: Record<string, unknown>;
+  seriesInstanceUID: string;
+  seriesDescription?: string;
+  expectedFiles: number;
+  actualFiles: number;
+  status: "pending" | "pulling" | "pulled" | "error";
+}
+
+/**
+ * Study with series status information.
+ */
+export interface StudyRetrieveStatus {
+  studyInfo: Record<string, unknown>;
+  studyInstanceUID?: string;
+  studyDescription?: string;
+  series: SeriesRetrieveStatus[];
+}
+
+/**
+ * Complete retrieve status report for a query.
+ */
+export interface PACSQueryStatusReport {
+  queryId: number;
+  retrieveStatus?: string;
+  retrieveId?: number;
+  studies: StudyRetrieveStatus[];
+}
+
+/**
+ * Count PACSFiles for a given SeriesInstanceUID.
+ *
+ * @param seriesInstanceUID - The series instance UID to count files for.
+ * @returns Result containing file count or Err.
+ */
+async function seriesFiles_count(
+  seriesInstanceUID: string
+): Promise<Result<number>> {
+  try {
+    const client: Client | null = await chrisConnection.client_get();
+    if (!client) {
+      return Ok(0);
+    }
+
+    // First get the PACSSeries record to find the folder_path
+    const seriesList = await client.getPACSSeriesList({
+      SeriesInstanceUID: seriesInstanceUID,
+      limit: 1,
+    });
+
+    const seriesItems = seriesList.getItems();
+    if (!seriesItems || seriesItems.length === 0) {
+      return Ok(0); // No series record means no files pulled yet
+    }
+
+    const series = seriesItems[0];
+    if (!series || !series.data) {
+      return Ok(0);
+    }
+
+    const folderPath: string | undefined = series.data.folder_path as string | undefined;
+
+    if (!folderPath) {
+      return Ok(0);
+    }
+
+    // Count PACSFiles in that folder
+    const filesList = await client.getPACSFiles({
+      fname: folderPath,
+      limit: 1000, // Reasonable limit for counting
+    });
+
+    const items = filesList.getItems();
+    return Ok(filesList.totalCount || (items ? items.length : 0));
+  } catch (error: unknown) {
+    errorStack.stack_push("warning", `Failed to count files for series ${seriesInstanceUID}: ${error}`);
+    return Ok(0); // Return 0 rather than failing the whole operation
+  }
+}
+
+/**
+ * Extract value from a DICOM tag object or return as-is.
+ *
+ * @param val - Potentially a tag object with {label, value} or a primitive.
+ * @returns The extracted value.
+ */
+function tagValue_extract(val: unknown): unknown {
+  if (val && typeof val === "object" && "value" in (val as Record<string, unknown>)) {
+    const tagObj = val as { value?: unknown };
+    return tagObj.value;
+  }
+  return val;
+}
+
+/**
+ * Determine series status based on file counts.
+ *
+ * @param expected - Expected number of files.
+ * @param actual - Actual number of files pulled.
+ * @returns Status string.
+ */
+function seriesStatus_determine(
+  expected: number,
+  actual: number
+): "pending" | "pulling" | "pulled" | "error" {
+  if (actual === 0) {
+    return "pending";
+  }
+  if (actual < expected) {
+    return "pulling";
+  }
+  if (actual === expected) {
+    return "pulled";
+  }
+  return "error"; // More files than expected
+}
+
+/**
+ * Generate a complete status report for a PACS query retrieve.
+ * This combines query decode results with actual file counts to show progress.
+ *
+ * @param queryId - PACS query ID.
+ * @returns Result containing PACSQueryStatusReport or Err.
+ */
+export async function pacsRetrieve_statusForQuery(
+  queryId: number
+): Promise<Result<PACSQueryStatusReport>> {
+  try {
+    // Step 1: Decode query result to get series information
+    const decodedResult = await pacsQuery_resultDecode(queryId);
+    if (!decodedResult.ok) {
+      return Err();
+    }
+
+    const decoded = decodedResult.value;
+    if (!decoded.json) {
+      errorStack.stack_push("error", `Query ${queryId} has no decoded JSON result.`);
+      return Err();
+    }
+
+    // Step 2: Get retrieve records for this query
+    const retrievesResult = await pacsRetrieves_list(queryId);
+    let retrieveStatus: string | undefined;
+    let retrieveId: number | undefined;
+
+    if (retrievesResult.ok && retrievesResult.value.length > 0) {
+      const latestRetrieve = retrievesResult.value[retrievesResult.value.length - 1];
+      retrieveStatus = latestRetrieve.status;
+      retrieveId = latestRetrieve.id;
+    }
+
+    // Step 3: Process the query result structure
+    const payload: unknown = decoded.json;
+    const studies: StudyRetrieveStatus[] = [];
+
+    // Handle both array and object payloads
+    const payloadArray: unknown[] = Array.isArray(payload) ? payload : [payload];
+
+    for (const studyObj of payloadArray) {
+      if (!studyObj || typeof studyObj !== "object") {
+        continue;
+      }
+
+      const study = studyObj as Record<string, unknown>;
+      const studyStatus: StudyRetrieveStatus = {
+        studyInfo: study,
+        studyInstanceUID: tagValue_extract(study.StudyInstanceUID) as string | undefined,
+        studyDescription: tagValue_extract(study.StudyDescription) as string | undefined,
+        series: [],
+      };
+
+      // Extract series array
+      const seriesArray: unknown[] =
+        Array.isArray(study.series) ? study.series :
+        Array.isArray(study.Series) ? study.Series :
+        Array.isArray(study.results) ? study.results :
+        [];
+
+      // Process each series
+      for (const seriesObj of seriesArray) {
+        if (!seriesObj || typeof seriesObj !== "object") {
+          continue;
+        }
+
+        const series = seriesObj as Record<string, unknown>;
+        const seriesUID = tagValue_extract(series.SeriesInstanceUID) as string | undefined;
+
+        if (!seriesUID) {
+          continue;
+        }
+
+        // Get expected file count
+        const expectedFiles: number = Number(tagValue_extract(series.NumberOfSeriesRelatedInstances)) || 0;
+
+        // Count actual files pulled to CUBE
+        const actualFilesResult = await seriesFiles_count(seriesUID);
+        const actualFiles: number = actualFilesResult.ok ? actualFilesResult.value : 0;
+
+        // Determine status
+        const status = seriesStatus_determine(expectedFiles, actualFiles);
+
+        studyStatus.series.push({
+          seriesInfo: series,
+          seriesInstanceUID: seriesUID,
+          seriesDescription: tagValue_extract(series.SeriesDescription) as string | undefined,
+          expectedFiles,
+          actualFiles,
+          status,
+        });
+      }
+
+      studies.push(studyStatus);
+    }
+
+    const report: PACSQueryStatusReport = {
+      queryId,
+      retrieveStatus,
+      retrieveId,
+      studies,
+    };
+
+    return Ok(report);
+  } catch (error: unknown) {
+    const errorMessage: string = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to generate status report for query ${queryId}: ${errorMessage}`);
+    return Err();
+  }
+}
