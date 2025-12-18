@@ -70,6 +70,12 @@
 === Basic Query Workflow
 
 ```typescript
+import type {
+  Result,
+  PACSServer,
+  PACSQueryRecord,
+  PACSQueryDecodedResult,
+} from "@fnndsc/cumin";
 import {
   pacsServers_list,
   pacsServer_resolve,
@@ -77,42 +83,62 @@ import {
   pacsQuery_resultDecode,
 } from "@fnndsc/cumin";
 
-const servers = await pacsServers_list();
-if (servers.ok) console.log(servers.value);
+const serversResult: Result<PACSServer[]> = await pacsServers_list();
+if (serversResult.ok) {
+  const servers: PACSServer[] = serversResult.value;
+  console.log(servers);
+}
 
 const resolved = await pacsServer_resolve("PACSDCM");
 if (!resolved.ok) return;
+const resolvedServerId: number = resolved.value.id;
 
-const created = await pacsQueries_create("PACSDCM", {
+const createdQuery: Result<PACSQueryRecord> = await pacsQueries_create("PACSDCM", {
   title: "PID 4456554",
   query: JSON.stringify({ PatientID: "4456554" }),
 });
+if (!createdQuery.ok) return;
+const queryId: number = createdQuery.value.id;
 
-const decoded = await pacsQuery_resultDecode(created.ok ? created.value.id : 0);
-if (decoded.ok && decoded.value.json) {
-  console.log(decoded.value.json);
+const decodedResult: Result<PACSQueryDecodedResult> = await pacsQuery_resultDecode(
+  queryId
+);
+if (decodedResult.ok && decodedResult.value.json) {
+  const decodedJson: unknown = decodedResult.value.json;
+  console.log(decodedJson);
 }
 ```
 
 === Retrieve Workflow with Progress Monitoring
 
 ```typescript
+import type {
+  Result,
+  PACSRetrieveRecord,
+  PACSQueryStatusReport,
+} from "@fnndsc/cumin";
 import {
   pacsRetrieve_create,
   pacsRetrieve_statusForQuery,
   pacsRetrieves_list,
 } from "@fnndsc/cumin";
 
-// Trigger retrieve
-const retrieve = await pacsRetrieve_create(queryId);
-if (!retrieve.ok) return;
+const queryId: number = 123; // an existing PACS query id
 
-console.log(`Created retrieve ${retrieve.value.id}`);
+// Trigger retrieve
+const retrieveResult: Result<PACSRetrieveRecord> = await pacsRetrieve_create(queryId);
+if (!retrieveResult.ok) return;
+const retrieveId: number = retrieveResult.value.id;
+
+console.log(`Created retrieve ${retrieveId}`);
 
 // Check status
-const status = await pacsRetrieve_statusForQuery(queryId);
-if (status.ok) {
-  for (const study of status.value.studies) {
+const statusResult: Result<PACSQueryStatusReport> = await pacsRetrieve_statusForQuery(
+  queryId
+);
+if (statusResult.ok) {
+  const statusReport: PACSQueryStatusReport = statusResult.value;
+  for (const study of statusReport.studies) {
     for (const series of study.series) {
       console.log(`${series.seriesDescription}: ${series.status} (${series.actualFiles}/${series.expectedFiles})`);
     }
@@ -120,8 +146,9 @@ if (status.ok) {
 }
 
 // List all retrieves for this query
-const retrieves = await pacsRetrieves_list(queryId);
-if (retrieves.ok) {
-  console.log(`Found ${retrieves.value.length} retrieves`);
+const retrievesResult: Result<PACSRetrieveRecord[]> = await pacsRetrieves_list(queryId);
+if (retrievesResult.ok) {
+  const retrieves: PACSRetrieveRecord[] = retrievesResult.value;
+  console.log(`Found ${retrieves.length} retrieves`);
 }
 ```
