@@ -2,7 +2,7 @@
  * @file Unit tests for Result type utilities
  */
 
-import { Result, Ok, Err, isOk, isErr } from '../src/utils/result';
+import { Result, Ok, Err, result_isOk, result_isErr } from '../src/utils/result';
 
 describe('Result Type', () => {
   describe('Ok()', () => {
@@ -55,20 +55,20 @@ describe('Result Type', () => {
     });
   });
 
-  describe('isOk()', () => {
+  describe('result_isOk()', () => {
     it('should return true for Ok result', () => {
       const result = Ok(123);
-      expect(isOk(result)).toBe(true);
+      expect(result_isOk(result)).toBe(true);
     });
 
     it('should return false for Err result', () => {
       const result: Result<number> = Err();
-      expect(isOk(result)).toBe(false);
+      expect(result_isOk(result)).toBe(false);
     });
 
     it('should narrow type for TypeScript', () => {
       const result: Result<number> = Ok(42);
-      if (isOk(result)) {
+      if (result_isOk(result)) {
         // TypeScript knows result.value exists here
         const value: number = result.value;
         expect(value).toBe(42);
@@ -76,20 +76,20 @@ describe('Result Type', () => {
     });
   });
 
-  describe('isErr()', () => {
+  describe('result_isErr()', () => {
     it('should return false for Ok result', () => {
       const result = Ok(123);
-      expect(isErr(result)).toBe(false);
+      expect(result_isErr(result)).toBe(false);
     });
 
     it('should return true for Err result', () => {
       const result: Result<number> = Err();
-      expect(isErr(result)).toBe(true);
+      expect(result_isErr(result)).toBe(true);
     });
 
     it('should narrow type for TypeScript', () => {
       const result: Result<number> = Err();
-      if (isErr(result)) {
+      if (result_isErr(result)) {
         // TypeScript knows result.ok is false here
         expect(result.ok).toBe(false);
       }

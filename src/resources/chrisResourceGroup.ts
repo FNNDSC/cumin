@@ -8,9 +8,9 @@
  * @module
  */
 
-import Client from "@fnndsc/chrisapi";
+import Client, { ListResource, Resource } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
-import { ChRISResource } from "../resources/chrisResources.js";
+import { ChRISResource, ListOptions } from "../resources/chrisResources.js";
 
 /**
  * Abstract base class for a group of ChRIS resources.
@@ -24,14 +24,14 @@ export abstract class ChRISResourceGroup {
    * @param getMethod - The method name on the client/object to fetch resources.
    * @param chrisObj - Optional object to bind the method to. If not provided, uses the global ChRIS client lazily.
    */
-  constructor(resourceName: string, getMethod: string, chrisObj?: any) {
+  constructor(resourceName: string, getMethod: string, chrisObj?: unknown) {
     this._asset = new ChRISResource();
     this._asset.resourceName = resourceName;
 
     if (chrisObj) {
       this._asset.resource_bindGetMethodToObj(
         chrisObj,
-        (chrisObj as any)[getMethod]
+        (chrisObj as Record<string, (params: ListOptions) => Promise<ListResource | Resource>>)[getMethod]
       );
     } else {
       this._asset.resource_bindMethodLazy(

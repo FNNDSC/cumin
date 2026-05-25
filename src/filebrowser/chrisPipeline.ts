@@ -13,6 +13,21 @@ import { errorStack } from "../error/errorStack.js";
 import { Result, Ok, Err } from "../utils/result.js";
 
 /**
+ * Runtime types for ChRIS API objects with methods/properties not in type definitions.
+ */
+interface PipelineSourceFileListWithGetItems extends PipelineSourceFileList {
+  getItems(): PipelineSourceFile[];
+}
+
+interface PipelineSourceFileData {
+  fname: string;
+}
+
+interface PipelineSourceFileWithData extends PipelineSourceFile {
+  data: PipelineSourceFileData;
+}
+
+/**
  * Downloads a pipeline source file by path and returns the raw binary content.
  *
  * Pipeline source files are typically YAML configuration files stored under /PIPELINES/<owner>/<filename>.
@@ -51,13 +66,11 @@ export async function pipelineFile_getByPath(filePath: string): Promise<Result<B
     }
 
     // Get all items from the list
-    // @ts-ignore - chrisapi type definitions may not expose getItems()
-    const allItems: PipelineSourceFile[] = pipelineSourceFileListResult.getItems();
+    const allItems: PipelineSourceFile[] = (pipelineSourceFileListResult as PipelineSourceFileListWithGetItems).getItems();
 
     // Filter by full fname path (API returns full path like "PIPELINES/user/file.yml")
-    // @ts-ignore - accessing data property which may not be in type definitions
     const matchingPipelineFiles: PipelineSourceFile[] = allItems.filter((item: PipelineSourceFile) => {
-        const itemData = item.data as { fname: string };
+        const itemData = (item as PipelineSourceFileWithData).data;
         return itemData.fname === expectedFname;
     });
 

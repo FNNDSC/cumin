@@ -7,7 +7,7 @@ jest.mock("@fnndsc/chrisapi", () => ({
 jest.mock("../src/filebrowser/chrisPACS");
 jest.mock("../src/filebrowser/chrisPipeline");
 
-import { getChrisVersion } from "../src/index.js";
+import { chrisVersion_get } from "../src/index.js";
 import Client from "@fnndsc/chrisapi";
 
 describe("cumin utilities", () => {
@@ -18,7 +18,7 @@ describe("cumin utilities", () => {
     // };
     // jest.spyOn(Client, "getClient").mockReturnValue(mockClient);
     //
-    const version = await getChrisVersion("http://example.com");
+    const version = await chrisVersion_get("http://example.com");
     expect(version).toBe(mockVersion);
   });
 });

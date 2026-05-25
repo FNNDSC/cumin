@@ -54,7 +54,7 @@ export async function computeResources_validate(
 
     // Fetch all compute resources
     const computeResourceList: ComputeResourceList = await client.getComputeResources();
-    const resources: ComputeResource[] = computeResourceList.data || [];
+    const resources: ComputeResource[] = (computeResourceList.data as unknown as ComputeResource[]) || [];
 
     // Extract available resource names
     const availableNames: Set<string> = new Set(resources.map((r: ComputeResource) => r.name));
@@ -97,7 +97,7 @@ export async function computeResources_getAll(): Promise<Result<ComputeResource[
     }
 
     const computeResourceList: ComputeResourceList = await client.getComputeResources();
-    const resources: ComputeResource[] = computeResourceList.data || [];
+    const resources: ComputeResource[] = (computeResourceList.data as unknown as ComputeResource[]) || [];
 
     return Ok(resources);
   } catch (error: unknown) {

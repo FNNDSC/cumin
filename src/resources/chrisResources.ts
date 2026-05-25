@@ -13,10 +13,17 @@ import { chrisConnection } from "../connect/chrisConnection.js";
 import { connectionConfig } from "../config/config.js";
 
 /**
- * A simple record with string keys and any values.
+ * ListResource with pagination support (hasNext property exists at runtime).
+ */
+interface ListResourceWithPagination extends ListResource {
+  hasNext: boolean;
+}
+
+/**
+ * A simple record with string keys and unknown values.
  */
 export interface SimpleRecord {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -31,9 +38,9 @@ export interface ListOptions extends SimpleRecord {
  * Represents an item in a resource collection.
  */
 export interface Item {
-  data: Array<{ name: string; value: any }>;
+  data: Array<{ name: string; value: unknown }>;
   href: string;
-  links: Array<any>;
+  links: Array<unknown>;
 }
 
 interface ResourcesFromOptions {
@@ -61,7 +68,7 @@ export interface ResourcesByFields extends ResourcesFromOptions {
  * Contains data filtered for table display and selected fields.
  */
 export interface FilteredResourceData {
-  tableData: Record<string, any>[];
+  tableData: Record<string, unknown>[];
   selectedFields: string[];
 }
 
@@ -82,9 +89,9 @@ export class ChRISResource {
   private _resourceArrayItems: Item[] | null = null;
   private _resourceArray: ItemResource[] | null | undefined = null;
   private _resourceItem: ItemResource | null = null;
-  private resourceMethod: ((params: ListOptions) => Promise<any>) | null = null;
+  private resourceMethod: ((params: ListOptions) => Promise<ListResource | Resource>) | null = null;
   private _lazyMethodName: string | null = null;
-  private _lazyObjProvider: (() => Promise<any>) | null = null;
+  private _lazyObjProvider: (() => Promise<unknown>) | null = null;
 
   constructor() {
     // Client initialization is deferred
@@ -120,7 +127,7 @@ export class ChRISResource {
    */
   resourceItem_toDict(item: Item): Dictionary {
     return item.data.reduce((acc: Dictionary, { name, value }) => {
-      acc[name] = value;
+      acc[name] = value as string | number | boolean;
       return acc;
     }, {});
   }
@@ -143,11 +150,11 @@ export class ChRISResource {
     if (!(this._resourceCollection instanceof ListResource)) {
       return false;
     }
-    const res: ItemResource = this._resourceCollection?.getItem(id);
+    const res = this._resourceCollection?.getItem(id) as ItemResource;
     try {
       await res._delete();
       return true;
-    } catch (e) {
+    } catch (e: unknown) {
       return false;
     }
   }
@@ -160,10 +167,10 @@ export class ChRISResource {
   resourceItems_buildFromCollection(
     resources: ListResource | Resource | null
   ): Item[] | null {
-    if (!resources) {
+    if (!resources || !resources.collection) {
       return null;
     }
-    return resources.collection.items.map((item: any) => ({
+    return (resources.collection as unknown as { items: Item[] }).items.map((item: Item) => ({
       data: item.data,
       href: item.href,
       links: item.links,
@@ -177,8 +184,8 @@ export class ChRISResource {
    * @param resourceName - Optional name for the resource.
    */
   resource_bindGetMethodToObj(
-    obj: any,
-    resourceMethod: (params: ListOptions) => Promise<any>,
+    obj: unknown,
+    resourceMethod: (params: ListOptions) => Promise<ListResource | Resource>,
     resourceName?: string
   ): void {
     // this._resourceObj = obj;
@@ -193,7 +200,7 @@ export class ChRISResource {
    * @param resourceName - Optional name for the resource.
    */
   resource_bindMethodLazy(
-    objProvider: () => Promise<any>,
+    objProvider: () => Promise<unknown>,
     methodName: string,
     resourceName?: string
   ): void {
@@ -219,8 +226,7 @@ export class ChRISResource {
 
   get hasNextPage(): boolean {
     if (this._resourceCollection instanceof ListResource) {
-      // @ts-ignore: hasNext exists on ListResource at runtime
-      return this._resourceCollection.hasNext;
+      return (this._resourceCollection as ListResourceWithPagination).hasNext;
     }
     return false;
   }
@@ -235,7 +241,7 @@ export class ChRISResource {
   ): Promise<FilteredResourceData | null> {
     const limit = 100;
     let offset = 0;
-    let allTableData: Record<string, any>[] = [];
+    let allTableData: Record<string, unknown>[] = [];
     let selectedFields: string[] = [];
     // If options has a limit, we should respect it? No, getAll implies fetching everything.
     // But we should respect filters.
@@ -315,7 +321,7 @@ export class ChRISResource {
     if (!resources) return null;
 
     const tableData = resources.map((resource) => {
-      const rowData: Record<string, any> = {
+      const rowData: Record<string, unknown> = {
         id: resource.href.split("/").slice(-2)[0],
       };
       resource.data.forEach((item) => {
@@ -348,7 +354,7 @@ export class ChRISResource {
   ): string[] {
     let selectedFields: string[] = [];
     let fieldSpec: string = "";
-    if (options?.fields) {
+    if (typeof options?.fields === "string") {
       fieldSpec = options.fields;
     } else if (fieldFilter) {
       fieldSpec = fieldFilter;
@@ -406,11 +412,11 @@ export class ChRISResource {
     if (!this.resourceMethod) {
       return null;
     }
-    const resources: ListResource | null = await this.resourceMethod(params);
+    const resources: ListResource | Resource | null = await this.resourceMethod(params);
     if (!(this._resourceCollection instanceof ListResource)) {
       return null;
     }
-    this._resourceArray = this._resourceCollection?.getItems();
+    this._resourceArray = this._resourceCollection?.getItems() as ItemResource[] | null;
     if (this._resourceArray) {
       // console.log(this._resourceArray);
       return this._resourceArray;
@@ -426,7 +432,7 @@ export class ChRISResource {
     return params;
   }
 
-  private applyAdditionalFiltering(originalParams: ListOptions): any[] | null {
+  private applyAdditionalFiltering(originalParams: ListOptions): Item[] | null {
     if (!this._resourceArrayItems || this._resourceArrayItems.length === 0) {
       return null;
     }
@@ -461,7 +467,7 @@ export class ChRISResource {
 
   async resources_getList(
     options?: Partial<ListOptions>,
-    resourceMethod?: (params: ListOptions) => Promise<any>
+    resourceMethod?: (params: ListOptions) => Promise<ListResource | Resource>
   ): Promise<ListOptions | null> {
     const params: ListOptions = {
       limit: 20,
@@ -478,7 +484,7 @@ export class ChRISResource {
     await this._resolveLazyBinding();
 
     if (!this.resourceMethod) return params;
-    let resources: ListResource | null = null;
+    let resources: ListResource | Resource | null = null;
     try {
       resources = await this.resourceMethod(pureparams);
     } catch (error: unknown) {
@@ -507,7 +513,7 @@ export class ChRISResource {
     if (!(this._resourceCollection instanceof ListResource)) {
       return null;
     }
-    this._resourceArray = this._resourceCollection?.getItems();
+    this._resourceArray = this._resourceCollection?.getItems() as ItemResource[] | null;
     this._resourceArrayItems =
       this.resourceItems_buildFromCollection(resources);
     if (Object.keys(pureparams).length > Object.keys(simplifiedParams).length) {

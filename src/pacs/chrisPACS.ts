@@ -45,6 +45,56 @@ export class ChRISPACSGroup extends ChRISResourceGroup {
 }
 
 /**
+ * PACSQuery data structure from ChRIS API.
+ */
+interface PACSQueryData {
+  result?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * PACSQuery object from ChRIS API.
+ */
+interface PACSQuery {
+  data: PACSQueryData;
+}
+
+/**
+ * PACSRetrieve item data from collection.
+ */
+interface PACSRetrieveItemData {
+  id: number;
+  pacs_query_id: number;
+  status: string;
+  creation_date: string;
+  [key: string]: unknown;
+}
+
+/**
+ * PACSRetrieve item from collection.
+ */
+interface PACSRetrieveItem {
+  data: PACSRetrieveItemData;
+  [key: string]: unknown;
+}
+
+/**
+ * Client auth object from ChRIS API.
+ */
+interface ClientAuth {
+  cubeUrl?: string;
+  token: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Client with auth property.
+ */
+interface ClientWithAuth extends Client {
+  auth: ClientAuth;
+}
+
+/**
  * Minimal shape of a PACS query record.
  */
 export interface PACSQueryRecord {
@@ -94,11 +144,11 @@ export async function pacsServer_resolve(
   }
 
   try {
-    const list: { data?: PACSServer[] } = await client.getPACSList({
+    const list = await client.getPACSList({
       identifier: pacsserver,
       limit: 5,
     });
-    const matches: PACSServer[] = Array.isArray(list.data) ? list.data : [];
+    const matches: PACSServer[] = Array.isArray(list.data) ? (list.data as unknown as PACSServer[]) : [];
     if (matches.length === 1) {
       const match: PACSServer = matches[0];
       return Ok({ id: match.id, identifier: match.identifier });
@@ -219,12 +269,13 @@ export async function pacsQueries_create(
       return Err();
     }
     const query = await client.createPACSQuery(id, data);
+    const queryData = query.data as unknown as PACSQueryRecord | null;
     const record: PACSQueryRecord = {
-      id: query.data?.id as number,
-      title: query.data?.title as string,
-      status: query.data?.status as string,
-      pacs_id: query.data?.pacs_id as number,
-      result: query.data?.result,
+      id: queryData?.id as number,
+      title: queryData?.title as string,
+      status: queryData?.status as string,
+      pacs_id: queryData?.pacs_id as number,
+      result: queryData?.result,
     };
     return Ok(record);
   } catch (error: unknown) {
@@ -268,7 +319,8 @@ export async function pacsQuery_resultDecode(
       return Err();
     }
 
-    const raw: string | undefined = (query.data as any).result as string | undefined;
+    const queryData = query.data as unknown as PACSQueryData | null;
+    const raw: string | undefined = queryData?.result;
     if (!raw || typeof raw !== "string") {
       errorStack.stack_push("error", `PACS query ${queryId} has no result payload.`);
       return Err();
@@ -357,11 +409,12 @@ export async function pacsRetrieve_create(
     }
 
     const retrieve = await client.createPACSRetrieve(queryId);
+    const retrieveData = retrieve.data as unknown as PACSRetrieveItemData | null;
     const record: PACSRetrieveRecord = {
-      id: retrieve.data?.id as number,
+      id: retrieveData?.id as number,
       pacs_query_id: queryId,
-      status: retrieve.data?.status as string,
-      creation_date: retrieve.data?.creation_date as string,
+      status: retrieveData?.status as string,
+      creation_date: retrieveData?.creation_date as string,
     };
     return Ok(record);
   } catch (error: unknown) {
@@ -396,17 +449,17 @@ export async function pacsRetrieves_list(
     }
 
     const retrieveList = await query.getRetrieves(options);
-    const items = retrieveList.getItems();
+    const items = retrieveList.getItems() as unknown as PACSRetrieveItem[];
 
     if (!items) {
       return Ok([]);
     }
 
-    const records: PACSRetrieveRecord[] = items.map((item: any): PACSRetrieveRecord => ({
-      id: item.data?.id as number,
-      pacs_query_id: item.data?.pacs_query_id as number,
-      status: item.data?.status as string,
-      creation_date: item.data?.creation_date as string,
+    const records: PACSRetrieveRecord[] = items.map((item: PACSRetrieveItem): PACSRetrieveRecord => ({
+      id: item.data.id,
+      pacs_query_id: item.data.pacs_query_id,
+      status: item.data.status,
+      creation_date: item.data.creation_date,
     }));
 
     return Ok(records);
@@ -440,7 +493,7 @@ export async function pacsRetrieve_delete(
 
     // Note: This is a simplified implementation
     // In a production system, you'd want to verify the retrieve exists first
-    const baseUrl = (client as any).auth?.cubeUrl || "";
+    const baseUrl = (client as ClientWithAuth).auth?.cubeUrl || "";
     if (!baseUrl) {
       errorStack.stack_push("error", "Could not determine CUBE URL for delete operation.");
       return Err();
@@ -448,7 +501,7 @@ export async function pacsRetrieve_delete(
 
     const retrieveUrl = `${baseUrl}api/v1/pacsfiles/retrieves/${retrieveId}/`;
     const PACSRetrieve = (await import("@fnndsc/chrisapi")).PACSRetrieve;
-    const retrieve = new PACSRetrieve(retrieveUrl, (client as any).auth);
+    const retrieve = new PACSRetrieve(retrieveUrl, (client as ClientWithAuth).auth);
 
     await retrieve.delete();
     return Ok(undefined);
@@ -517,12 +570,12 @@ async function seriesFiles_count(
       return Ok(0); // No series record means no files pulled yet
     }
 
-    const series = seriesItems[0];
+    const series = seriesItems[0] as unknown as { data?: { folder_path?: string } };
     if (!series || !series.data) {
       return Ok(0);
     }
 
-    const folderPath: string | undefined = series.data.folder_path as string | undefined;
+    const folderPath: string | undefined = series.data.folder_path;
 
     if (!folderPath) {
       return Ok(0);

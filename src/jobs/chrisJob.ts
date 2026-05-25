@@ -29,6 +29,19 @@ export interface JobStatus {
   error: string | null;
 }
 
+/**
+ * Plugin instance data from ChRIS API.
+ */
+interface PluginInstanceData {
+  plugin_name: string;
+  status: string;
+  start_date: string;
+  started_date?: string;
+  finished_date?: string;
+  error_message?: string;
+  [key: string]: unknown;
+}
+
 export class ChRISJob {
   private instanceId: string;
 
@@ -53,25 +66,25 @@ export class ChRISJob {
       // or that we need to fetch the resource.
       // Looking at chrisapi docs (mental check): client.getPluginInstance(id) exists.
       const instance = await client.getPluginInstance(Number(this.instanceId));
-
-      if (!instance) {
+      if (!instance || !instance.data) {
         errorStack.stack_push('error', `Job ${this.instanceId} not found`);
         return Err();
       }
 
+      const instanceData = instance.data as unknown as PluginInstanceData;
       return Ok({
         id: this.instanceId,
-        pluginName: instance.data.plugin_name,
-        state: instance.data.status as JobState,
-        progress: this.progress_calculate(instance.data),
-        createdAt: new Date(instance.data.start_date),
-        startedAt: instance.data.started_date
-          ? new Date(instance.data.started_date)
+        pluginName: instanceData.plugin_name,
+        state: instanceData.status as JobState,
+        progress: this.progress_calculate(instanceData),
+        createdAt: new Date(instanceData.start_date),
+        startedAt: instanceData.started_date
+          ? new Date(instanceData.started_date)
           : null,
-        finishedAt: instance.data.finished_date
-          ? new Date(instance.data.finished_date)
+        finishedAt: instanceData.finished_date
+          ? new Date(instanceData.finished_date)
           : null,
-        error: instance.data.error_message || null,
+        error: instanceData.error_message || null,
       });
     } catch (error) {
       errorStack.stack_push('error', `Failed to get job status: ${error}`);
@@ -125,8 +138,9 @@ export class ChRISJob {
         // or implement it if we can find the logs.
         
         // Let's check status.
-        if (instance) {
-            const status = instance.data.status;
+        if (instance && instance.data) {
+            const instanceData = instance.data as unknown as PluginInstanceData;
+            const status = instanceData.status;
             if (['completed', 'error', 'cancelled'].includes(status)) {
                 isActive = false;
             }
@@ -182,7 +196,7 @@ export class ChRISJob {
     }
   }
 
-  private progress_calculate(instanceData: any): number {
+  private progress_calculate(instanceData: PluginInstanceData): number {
     // Implementation: parse progress from instance data
     // ChRIS doesn't have native progress, so we estimate based on state
     switch (instanceData.status) {

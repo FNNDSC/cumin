@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+/**
+ * @file Cumin Package Main Entry Point.
+ *
+ * This file serves as the main entry point and export aggregator for the Cumin infrastructure
+ * library. It exports error stacks, config utilities, PACs handlers, connections, file browsers,
+ * and result Monads for downstream consumption by Salsa, Chili, and Chell.
+ *
+ * @module
+ */
+
 export * from "./";
 export * from "./error/errorStack";
 export * from "./config/config";
@@ -49,7 +59,7 @@ export interface ChrisPluginSummary {
  * @param url - The URL of the ChRIS instance.
  * @returns A Promise resolving to the version string.
  */
-export async function getChrisVersion(url: string): Promise<string> {
+export async function chrisVersion_get(url: string): Promise<string> {
   const version = "1.0.0";
   // const client = Client.getClient(url);
   // const version = await client.getVersion();

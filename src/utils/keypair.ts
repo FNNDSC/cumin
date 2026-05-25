@@ -1,3 +1,12 @@
+/**
+ * @file Key-Pair and CLI Option Parsing Utilities.
+ *
+ * This module provides parsing and transformation utilities for converting key-value strings,
+ * raw CLI parameters, and command options into standardized ChRIS query payloads and objects.
+ *
+ * @module
+ */
+
 import { ListOptions } from "../resources/chrisResources";
 
 /**
@@ -130,7 +139,7 @@ function options_reduce(options: ChRISElementsGet): ListOptions {
  * @param keyPairField - The field name containing the key-pair string.
  * @returns Formatted ListOptions.
  */
-export function params_fromOptions(
+export function listParams_fromOptions(
   options: ChRISElementsGet,
   keyPairField: keyof ChRISElementsGet = "search"
 ): ListOptions {

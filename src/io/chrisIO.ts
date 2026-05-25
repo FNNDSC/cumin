@@ -14,6 +14,40 @@ import { IStorageProvider } from "./io.js";
 import { Err, Ok, Result } from "../utils/result.js";
 
 /**
+ * UserFile data with fname field.
+ */
+interface UserFileData {
+  fname?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * UserFile with data property.
+ */
+interface UserFileWithData extends UserFile {
+  data: UserFileData;
+}
+
+/**
+ * UserFile with getFileStream method.
+ */
+interface UserFileWithStream extends UserFile {
+  getFileStream(): Promise<FileStreamResponse>;
+}
+
+/**
+ * Response from getFileStream method.
+ */
+interface FileStreamResponse {
+  data: unknown;
+  headers?: {
+    "content-length"?: string | number;
+    "Content-Length"?: string | number;
+    [key: string]: unknown;
+  };
+}
+
+/**
  * Class for handling IO operations with ChRIS.
  */
 export class ChrisIO {
@@ -75,10 +109,10 @@ export class ChrisIO {
     }
   }
 
-  private isArrayBuffer(obj: any): obj is ArrayBuffer {
+  private isArrayBuffer(obj: unknown): obj is ArrayBuffer {
     return (
       obj instanceof ArrayBuffer ||
-      (typeof obj === "object" && obj.byteLength !== undefined)
+      (typeof obj === "object" && obj !== null && "byteLength" in obj)
     );
   }
 
@@ -91,7 +125,7 @@ export class ChrisIO {
    */
   async file_downloadStream(
     fileId: number
-  ): Promise<Result<{ stream: any; size?: number; filename?: string }>> {
+  ): Promise<Result<{ stream: unknown; size?: number; filename?: string }>> {
     const client: Client | null = await this.client_get();
     if (!client) {
       errorStack.stack_push("error", "ChRIS client is not initialized");
@@ -109,7 +143,7 @@ export class ChrisIO {
         return Err();
       }
 
-      const response: any = await (userFile as any).getFileStream();
+      const response: FileStreamResponse = await (userFile as UserFileWithStream).getFileStream();
       if (!response || response.data === undefined) {
         errorStack.stack_push("error", `File ID ${fileId} returned no data.`);
         return Err();
@@ -124,7 +158,7 @@ export class ChrisIO {
       return Ok({
         stream: response.data,
         size: Number.isFinite(size) ? size : undefined,
-        filename: (userFile as any).data?.fname as string | undefined,
+        filename: (userFile as UserFileWithData).data?.fname,
       });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);

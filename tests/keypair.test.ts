@@ -2,7 +2,7 @@ import {
   dictionary_fromCLI,
   keyPairString_parse,
   keyPairParams_apply,
-  params_fromOptions,
+  listParams_fromOptions,
   record_extract,
   ChRISElementsGet
 } from '../src/utils/keypair';
@@ -139,36 +139,36 @@ describe('Keypair Utilities', () => {
     });
   });
 
-  describe('params_fromOptions()', () => {
+  describe('listParams_fromOptions()', () => {
     it('should set default limit and offset', () => {
       const options: ChRISElementsGet = {};
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.limit).toBe(20);
       expect(result.offset).toBe(0);
     });
 
     it('should use page option for limit', () => {
       const options: ChRISElementsGet = { page: '50' };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.limit).toBe(50);
     });
 
     it('should preserve custom offset', () => {
       const options: ChRISElementsGet = { offset: 100 };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.offset).toBe(100);
     });
 
     it('should apply search key-pairs', () => {
       const options: ChRISElementsGet = { search: 'name:chris,status:active' };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.name).toBe('chris');
       expect(result.status).toBe('active');
     });
 
     it('should use custom key-pair field', () => {
       const options: ChRISElementsGet = { params: 'id:123' };
-      const result = params_fromOptions(options, 'params');
+      const result = listParams_fromOptions(options, 'params');
       expect(result.id).toBe('123');
     });
 
@@ -179,7 +179,7 @@ describe('Keypair Utilities', () => {
         city: 'Boston',
         returnFilter: 'name,age'
       };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.name).toBe('chris');
       expect(result.age).toBe('30');
       expect(result.city).toBeUndefined();
@@ -192,7 +192,7 @@ describe('Keypair Utilities', () => {
         age: '30',
         returnFilter: 'name, age'
       };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.name).toBe('chris');
       expect(result.age).toBe('30');
     });
@@ -202,7 +202,7 @@ describe('Keypair Utilities', () => {
         name: 'chris',
         returnFilter: 'name,missing'
       };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.name).toBe('chris');
       expect(result.missing).toBeUndefined();
     });
@@ -213,7 +213,7 @@ describe('Keypair Utilities', () => {
         offset: 10,
         search: 'status:active'
       };
-      const result = params_fromOptions(options);
+      const result = listParams_fromOptions(options);
       expect(result.limit).toBe(30);
       expect(result.offset).toBe(10);
       expect(result.status).toBe('active');

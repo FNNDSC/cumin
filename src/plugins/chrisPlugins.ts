@@ -9,6 +9,13 @@
  */
 
 import Client, { PluginInstance, PluginList } from "@fnndsc/chrisapi";
+
+/**
+ * Extended PluginList with internal _post method (legacy API).
+ */
+interface PluginListWithPost {
+  _post(data: Record<string, unknown>, uploadFileObj?: unknown, timeout?: number): Promise<{ data: Record<string, unknown> }>;
+}
 import { chrisConnection } from "../connect/chrisConnection.js";
 import { chrisContext, Context } from "../context/chrisContext.js";
 import {
@@ -22,7 +29,7 @@ import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import {
   ChRISElementsGet,
   QueryHits,
-  params_fromOptions,
+  listParams_fromOptions,
   record_extract,
   ChRISObjectParams,
   dictionary_fromCLI,
@@ -51,6 +58,39 @@ export class ChRISPluginInstanceGroup extends ChRISResourceGroup {
 
 interface PreviousIDParam {
   previous_id: number;
+}
+
+/**
+ * Plugin data from peer store results.
+ */
+interface PluginResultData {
+  id: number;
+  url?: string;
+  name: string;
+  version?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Simple results array response (non-Collection+JSON).
+ */
+interface ResultsResponse {
+  results: PluginResultData[];
+}
+
+/**
+ * Compute resource data.
+ */
+interface ComputeResourceData {
+  name: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Compute resource list response.
+ */
+interface ComputeResourceListResponse {
+  data: ComputeResourceData[];
 }
 
 /**
@@ -92,7 +132,7 @@ function isCollectionJson(data: unknown): data is CollectionJson {
     typeof data === 'object' &&
     data !== null &&
     'collection' in data &&
-    typeof (data as any).collection === 'object'
+    typeof (data as Record<string, unknown>).collection === 'object'
   );
 }
 
@@ -259,7 +299,7 @@ export class ChRISPlugin {
   ): Promise<QueryHits | null> {
     const chrisPluginGroup = new ChRISPluginGroup();
     // We rely on lazy initialization of ChRISResourceGroup
-    const searchParams: ListOptions = params_fromOptions(searchOptions);
+    const searchParams: ListOptions = listParams_fromOptions(searchOptions);
     const searchResults: FilteredResourceData | null =
       await chrisPluginGroup.asset.resources_listAndFilterByOptions(
         searchParams
@@ -365,7 +405,7 @@ export class ChRISPlugin {
       );
 
       if (pluginAdmin && pluginAdmin.data) {
-        return pluginAdmin.data;
+        return pluginAdmin.data as unknown as Record<string, unknown>;
       }
 
       errorStack.stack_push('error', 'Failed to register plugin. No data in response.');
@@ -509,14 +549,14 @@ export class ChRISPlugin {
         }
       // Fallback for simple JSON (if ever supported)
       if (typeof data === 'object' && data !== null && 'results' in data) {
-        const results: any[] = (data as any).results || [];
+        const results: PluginResultData[] = (data as ResultsResponse).results || [];
 
         if (results.length === 0) {
           return null;
         }
 
         // Return first matching plugin
-        const plugin: any = results[0];
+        const plugin: PluginResultData = results[0];
         return {
           plugin: plugin,
           storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/`
@@ -547,13 +587,13 @@ export class ChRISPlugin {
       // Try searching by name first
       let pluginList = await client.getPlugins({ name_exact: nameOrImage, limit: 1 });
       if (pluginList && pluginList.data && pluginList.data.length > 0) {
-        return pluginList.data[0];
+        return pluginList.data[0] as unknown as Record<string, unknown>;
       }
 
       // Try searching by dock_image
       pluginList = await client.getPlugins({ dock_image: nameOrImage, limit: 1 });
       if (pluginList && pluginList.data && pluginList.data.length > 0) {
-        return pluginList.data[0];
+        return pluginList.data[0] as unknown as Record<string, unknown>;
       }
 
       return null;
@@ -666,10 +706,10 @@ export class ChRISPlugin {
         return [];
       }
 
-      const computeResourceList = await plugin.getPluginComputeResources();
-      const resources: any[] = computeResourceList.data || [];
+      const computeResourceList = await plugin.getPluginComputeResources() as unknown as ComputeResourceListResponse;
+      const resources: ComputeResourceData[] = computeResourceList.data || [];
 
-      return resources.map((r: any) => r.name);
+      return resources.map((r: ComputeResourceData) => r.name);
     } catch (error: unknown) {
       const errorMessage: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push('error', `Failed to get plugin compute resources: ${errorMessage}`);
@@ -717,8 +757,7 @@ export async function plugin_registerDirect(
     }
 
     // Call the internal _post method directly (legacy API)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await (pluginList as any)._post(data);
+    const response = await (pluginList as unknown as PluginListWithPost)._post(data);
 
     if (response && response.data) {
       return Ok(response.data);

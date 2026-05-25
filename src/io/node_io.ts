@@ -14,6 +14,18 @@ import * as path from "path";
 import * as os from "os";
 
 /**
+ * Type guard for Node.js filesystem errors.
+ */
+function nodeError_is(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'message' in error
+  );
+}
+
+/**
  * NodeStorageProvider implements IStorageProvider using Node.js's native 'fs' module.
  * It handles file system operations for reading, writing, and removing files,
  * and creating directories.
@@ -33,11 +45,12 @@ export class NodeStorageProvider implements IStorageProvider {
         return await fs.readFile(resolvedPath, "utf-8");
       }
       return null;
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (nodeError_is(error) && error.code === "ENOENT") {
         return null; // File not found is not an error for read
       }
-      throw new Error(`Failed to read file ${resolvedPath}: ${error.message}`);
+      const message = nodeError_is(error) ? error.message : String(error);
+      throw new Error(`Failed to read file ${resolvedPath}: ${message}`);
     }
   }
 
@@ -50,11 +63,12 @@ export class NodeStorageProvider implements IStorageProvider {
         return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
       }
       return null;
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (nodeError_is(error) && error.code === "ENOENT") {
         return null;
       }
-      throw new Error(`Failed to read binary file ${resolvedPath}: ${error.message}`);
+      const message = nodeError_is(error) ? error.message : String(error);
+      throw new Error(`Failed to read binary file ${resolvedPath}: ${message}`);
     }
   }
 
@@ -64,8 +78,9 @@ export class NodeStorageProvider implements IStorageProvider {
     await this.mkdir(dir, { recursive: true });
     try {
       await fs.writeFile(resolvedPath, data, "utf-8");
-    } catch (error: any) {
-      throw new Error(`Failed to write file ${resolvedPath}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = nodeError_is(error) ? error.message : String(error);
+      throw new Error(`Failed to write file ${resolvedPath}: ${message}`);
     }
   }
 
@@ -75,9 +90,10 @@ export class NodeStorageProvider implements IStorageProvider {
       if (await this.exists(resolvedPath)) {
         await fs.unlink(resolvedPath);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = nodeError_is(error) ? error.message : String(error);
       throw new Error(
-        `Failed to remove file ${resolvedPath}: ${error.message}`
+        `Failed to remove file ${resolvedPath}: ${message}`
       );
     }
   }
@@ -86,10 +102,11 @@ export class NodeStorageProvider implements IStorageProvider {
     const resolvedPath = this.resolvePath(filepath);
     try {
       await fs.mkdir(resolvedPath, options);
-    } catch (error: any) {
-      if (error.code !== "EEXIST") {
+    } catch (error: unknown) {
+      if (!nodeError_is(error) || error.code !== "EEXIST") {
+        const message = nodeError_is(error) ? error.message : String(error);
         throw new Error(
-          `Failed to create directory ${resolvedPath}: ${error.message}`
+          `Failed to create directory ${resolvedPath}: ${message}`
         );
       }
     }
@@ -100,12 +117,13 @@ export class NodeStorageProvider implements IStorageProvider {
     try {
       await fs.access(resolvedPath);
       return true;
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (nodeError_is(error) && error.code === "ENOENT") {
         return false;
       }
+      const message = nodeError_is(error) ? error.message : String(error);
       throw new Error(
-        `Failed to check existence of ${resolvedPath}: ${error.message}`
+        `Failed to check existence of ${resolvedPath}: ${message}`
       );
     }
   }
@@ -114,12 +132,13 @@ export class NodeStorageProvider implements IStorageProvider {
     const resolvedPath = this.resolvePath(filepath);
     try {
       return await fs.readdir(resolvedPath);
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (nodeError_is(error) && error.code === "ENOENT") {
         return [];
       }
+      const message = nodeError_is(error) ? error.message : String(error);
       throw new Error(
-        `Failed to read directory ${resolvedPath}: ${error.message}`
+        `Failed to read directory ${resolvedPath}: ${message}`
       );
     }
   }
@@ -129,12 +148,13 @@ export class NodeStorageProvider implements IStorageProvider {
     try {
       const stats = await fs.stat(resolvedPath);
       return stats.isDirectory();
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (nodeError_is(error) && error.code === "ENOENT") {
         return false;
       }
+      const message = nodeError_is(error) ? error.message : String(error);
       throw new Error(
-        `Failed to check if directory ${resolvedPath}: ${error.message}`
+        `Failed to check if directory ${resolvedPath}: ${message}`
       );
     }
   }

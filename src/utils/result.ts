@@ -64,19 +64,19 @@ export function Err<T>(): Result<T> {
 /**
  * Type guard to check if a Result is successful.
  *
- * @param result - The Result to check
- * @returns True if the Result contains a value
+ * @param result - The Result to check.
+ * @returns True if the Result contains a value.
  */
-export function isOk<T>(result: Result<T>): result is { ok: true; value: T } {
+export function result_isOk<T>(result: Result<T>): result is { ok: true; value: T } {
   return result.ok === true;
 }
 
 /**
  * Type guard to check if a Result is a failure.
  *
- * @param result - The Result to check
- * @returns True if the Result is a failure
+ * @param result - The Result to check.
+ * @returns True if the Result is a failure.
  */
-export function isErr<T>(result: Result<T>): result is { ok: false } {
+export function result_isErr<T>(result: Result<T>): result is { ok: false } {
   return result.ok === false;
 }

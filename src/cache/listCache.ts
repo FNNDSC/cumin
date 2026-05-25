@@ -16,9 +16,9 @@
 /**
  * Cache entry with metadata.
  */
-interface CacheEntry {
+interface CacheEntry<T = unknown> {
   /** The cached data (ListingItem[], plugin list, etc.) */
-  data: any;
+  data: T;
 
   /** Timestamp when cached (milliseconds since epoch) */
   timestamp: number;
@@ -33,9 +33,9 @@ interface CacheEntry {
 /**
  * Result returned by cache_get with freshness information.
  */
-export interface CacheResult {
+export interface CacheResult<T = unknown> {
   /** The cached data */
-  data: any;
+  data: T;
 
   /** True if within TTL and not dirty */
   fresh: boolean;
@@ -118,7 +118,7 @@ export class ListCache {
   private static instance: ListCache;
 
   /** Cache storage: path → entry. */
-  private cache: Map<string, CacheEntry> = new Map();
+  private cache: Map<string, CacheEntry<unknown>> = new Map();
 
   /** Maximum cache entries (LRU eviction). */
   private maxEntries: number = 100;
@@ -165,7 +165,7 @@ export class ListCache {
    * @param path - The path to retrieve.
    * @returns CacheResult with freshness info, or null if not cached.
    */
-  cache_get(path: string): CacheResult | null {
+  cache_get<T = unknown>(path: string): CacheResult<T> | null {
     const entry = this.cache.get(path);
 
     if (!entry) {
@@ -187,7 +187,7 @@ export class ListCache {
       this.stats.staleHits++;
     }
 
-    return { data: entry.data, fresh, age };
+    return { data: entry.data as T, fresh, age };
   }
 
   /**
@@ -197,7 +197,7 @@ export class ListCache {
    * @param data - The data to cache.
    * @param options - Optional TTL and dirty flag.
    */
-  cache_set(path: string, data: any, options?: CacheOptions): void {
+  cache_set<T = unknown>(path: string, data: T, options?: CacheOptions): void {
     // LRU: If exists, delete and re-add (moves to end)
     if (this.cache.has(path)) {
       this.cache.delete(path);
@@ -236,10 +236,10 @@ export class ListCache {
    * @param path - The parent directory path.
    * @param updater - Function to transform cached data.
    */
-  cache_update(path: string, updater: (data: any) => any): void {
+  cache_update<T = unknown>(path: string, updater: (data: T) => T): void {
     const entry = this.cache.get(path);
     if (entry) {
-      entry.data = updater(entry.data);
+      entry.data = updater(entry.data as T);
       entry.timestamp = Date.now();  // Reset timestamp
       entry.dirty = false;            // Clean after update
     }
