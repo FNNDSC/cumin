@@ -243,6 +243,7 @@ export interface PACSQueryCreateData {
   title: string;
   query: string;
   description?: string;
+  execute?: boolean;
 }
 
 /**
@@ -367,6 +368,39 @@ export async function pacsQuery_resultDecode(
       "error",
       `Failed to decode PACS query result for ${queryId}: ${errorMessage}`
     );
+    return Err();
+  }
+}
+
+/**
+ * Fetch a single PACS query record by ID.
+ *
+ * @param queryId - PACS query ID.
+ * @returns Result containing a PACSQueryRecord (with current status/result) or Err.
+ */
+export async function pacsQuery_get(queryId: number): Promise<Result<PACSQueryRecord>> {
+  try {
+    const client: Client | null = await chrisConnection.client_get();
+    if (!client) {
+      errorStack.stack_push("error", "Not connected to ChRIS. Please log in.");
+      return Err();
+    }
+    const query = await client.getPACSQuery(queryId);
+    if (!query || !query.data) {
+      errorStack.stack_push("error", `PACS query ${queryId} not found.`);
+      return Err();
+    }
+    const qData = query.data as unknown as PACSQueryRecord | null;
+    return Ok({
+      id: queryId,
+      title: qData?.title as string | undefined,
+      status: qData?.status as string | undefined,
+      pacs_id: qData?.pacs_id as number | undefined,
+      result: qData?.result,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    errorStack.stack_push("error", `Failed to get PACS query ${queryId}: ${msg}`);
     return Err();
   }
 }

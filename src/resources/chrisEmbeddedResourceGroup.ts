@@ -42,25 +42,51 @@ export class ChRISContextSpecError extends Error {
   }
 }
 
-interface ContextSpec {
+/**
+ * Specification representing the parsed components of a context string.
+ */
+export interface ContextSpec {
+  /**
+   * The type of context (e.g., 'folder', 'plugin', 'feed').
+   */
   type: string;
+  /**
+   * The value or path associated with the context.
+   */
   value: string;
 }
 
-function context_split(context: unknown, delimiter: string = ":"): ContextSpec {
+/**
+ * Splits a context string into its type and value components on the first occurrence of a delimiter.
+ *
+ * This function parses strings like "folder:/path/to/folder" or "plugin:123" into an object
+ * containing the type (the prefix before the first delimiter) and the value (the rest of the string).
+ * If the path contains extra delimiters (e.g. "/pacs/queries/2601_AccessionNumber:22548684"), this
+ * function correctly preserves those extra delimiters in the value component.
+ *
+ * @param context - The context string to be split. Must be a string.
+ * @param delimiter - The delimiter character to split on. Defaults to ":".
+ * @returns An object conforming to ContextSpec with the split components.
+ * @throws ChRISContextSpecError If the input is not a string or the delimiter is not found.
+ */
+export function context_split(context: unknown, delimiter: string = ":"): ContextSpec {
   if (typeof context !== "string") {
     throw new ChRISContextSpecError(
       `Invalid input: Expected a string, but received ${typeof context}`
     );
   }
 
-  const parts: string[] = context.split(delimiter);
-  if (parts.length !== 2) {
+  const delimiterIndex: number = context.indexOf(delimiter);
+  if (delimiterIndex === -1) {
     throw new ChRISContextSpecError(
       `Invalid input string format: Expected a ${delimiter}-separated string, but got: ${context}`
     );
   }
-  return { type: parts[0], value: parts[1] };
+
+  const type: string = context.slice(0, delimiterIndex);
+  const value: string = context.slice(delimiterIndex + delimiter.length);
+
+  return { type, value };
 }
 
 /**

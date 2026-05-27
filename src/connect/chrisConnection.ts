@@ -119,7 +119,7 @@ export class ChRISConnection {
     try {
       this.authToken = await Client.getAuthToken(authUrl, user, password);
       if (this.authToken) {
-        console.log("Auth token: " + this.authToken);
+        // console.log("Auth token: " + this.authToken);
         await this.token_saveToFile(this.tokenFile, this.authToken);
         console.log("Auth token saved successfully");
         console.log("ChRIS URL saved successfully");
