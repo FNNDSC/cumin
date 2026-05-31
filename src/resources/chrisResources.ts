@@ -387,7 +387,6 @@ export class ChRISResource {
       }
     }
 
-    // Remove duplicates from selectedFields
     selectedFields = Array.from(new Set(selectedFields));
 
     const resourcesByFields: ResourcesByFields = {
@@ -444,7 +443,6 @@ export class ChRISResource {
           return true;
         }
 
-        // Find the corresponding data item
         const dataItem = item.data.find((d) => d.name === paramKey);
         if (!dataItem) {
           return false; // If the field is not found, it doesn't match the filter
@@ -495,7 +493,7 @@ export class ChRISResource {
       try {
         simplifiedParams = this.options_simplify(pureparams);
         resources = await this.resourceMethod(simplifiedParams);
-      } catch (retryError) {
+      } catch (retryError: unknown) {
         if (connectionConfig && connectionConfig.debug) {
           console.error(`Retry failed for ${this._resourceName}:`, retryError);
         }

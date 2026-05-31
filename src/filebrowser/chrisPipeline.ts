@@ -57,15 +57,16 @@ export async function pipelineFile_getByPath(filePath: string): Promise<Result<B
   const expectedFname: string = filePath.startsWith('/') ? filePath.substring(1) : filePath;
 
   try {
-    // Query for all pipeline source files and filter client-side
-    const pipelineSourceFileListResult: PipelineSourceFileList | null = await client.getPipelineSourceFiles();
+    // Filter server-side by fname; fall back to client-side filter on the returned items
+    // in case the backend does not support fname as a query param.
+    const pipelineSourceFileListResult: PipelineSourceFileList | null =
+      await client.getPipelineSourceFiles({ fname: expectedFname, limit: 1000 });
 
     if (pipelineSourceFileListResult === null) {
       errorStack.stack_push("error", `Failed to retrieve pipeline source file list.`);
       return Err();
     }
 
-    // Get all items from the list
     const allItems: PipelineSourceFile[] = (pipelineSourceFileListResult as PipelineSourceFileListWithGetItems).getItems();
 
     // Filter by full fname path (API returns full path like "PIPELINES/user/file.yml")
@@ -136,6 +137,5 @@ export async function pipelineFile_getTextByPath(filePath: string): Promise<Resu
     return Err();
   }
 
-  // Convert Buffer to UTF-8 string
   return Ok(result.value.toString('utf-8'));
 }

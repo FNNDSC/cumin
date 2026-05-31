@@ -127,7 +127,7 @@ interface CollectionJson {
 /**
  * Type guard for CollectionJson.
  */
-function isCollectionJson(data: unknown): data is CollectionJson {
+function collectionJson_is(data: unknown): data is CollectionJson {
   return (
     typeof data === 'object' &&
     data !== null &&
@@ -375,7 +375,6 @@ export class ChRISPlugin {
       let client: Client | null;
 
       if (adminToken) {
-        // Use the provided admin token to create a specific client for this operation
         const url: string | null = await chrisConnection.chrisURL_get();
         if (!url) {
            errorStack.stack_push('error', 'ChRIS URL not found. Cannot create admin client.');
@@ -383,7 +382,6 @@ export class ChRISPlugin {
         }
         client = new Client(url, { token: adminToken });
       } else {
-        // Use the default authenticated client
         client = await this.client_get();
       }
 
@@ -411,7 +409,6 @@ export class ChRISPlugin {
       errorStack.stack_push('error', 'Failed to register plugin. No data in response.');
       return null;
     } catch (error: unknown) {
-      // Check for admin authentication errors
       const errorMessage: string = error instanceof Error ? error.message : String(error);
       const errorString: string = errorMessage.toLowerCase();
 
@@ -468,13 +465,12 @@ export class ChRISPlugin {
         const data: unknown = await response.json();
   
         // Handle Collection+JSON format (standard for ChRIS API)
-        if (isCollectionJson(data) && data.collection && data.collection.items) {
+        if (collectionJson_is(data) && data.collection && data.collection.items) {
           const items: CollectionItem[] = data.collection.items;
           if (items.length === 0) {
             return null;
           }
   
-          // Iterate through items to find exact name and version match (if version provided)
           // If version is not provided, prioritize exact name match
           let targetItem: CollectionItem | null = null;
           const exactNameMatches: CollectionItem[] = [];
@@ -523,7 +519,6 @@ export class ChRISPlugin {
                               errorStack.stack_push('warning', `Peer store search for exact plugin name '${pluginName}' returned '${targetItemData['name']}'. Exact name not found, using first result.`);
                            }
                       }  
-          // Extract data from target item
           const pluginData: Record<string, unknown> = {};
   
           if (targetItem.data) {
@@ -537,7 +532,6 @@ export class ChRISPlugin {
             pluginData['url'] = targetItem.href;
           }
   
-          // Extract links if present
           if (targetItem.links) {
             pluginData['links'] = targetItem.links;
           }
@@ -555,7 +549,6 @@ export class ChRISPlugin {
           return null;
         }
 
-        // Return first matching plugin
         const plugin: PluginResultData = results[0];
         return {
           plugin: plugin,
@@ -619,7 +612,6 @@ export class ChRISPlugin {
     try {
       let url: string;
       
-      // Use search endpoint if search parameters are provided
       if (searchParams && Object.keys(searchParams).length > 0) {
         url = `${peerStoreUrl}plugins/search/`;
       } else {
@@ -652,7 +644,7 @@ export class ChRISPlugin {
 
         const data: unknown = await response.json();
 
-        if (isCollectionJson(data) && data.collection.items) {
+        if (collectionJson_is(data) && data.collection.items) {
           const items = data.collection.items;
           
           items.forEach(item => {
@@ -666,7 +658,6 @@ export class ChRISPlugin {
              allPlugins.push(pluginData);
           });
 
-          // Check for next link
           nextUrl = null;
           if (data.collection.links) {
             const nextLink = data.collection.links.find(l => l.rel === 'next');

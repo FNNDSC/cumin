@@ -25,7 +25,7 @@ interface ErrorStackOptions {
  * @param length - The target length.
  * @returns The padded or truncated string.
  */
-function padRight(str: string, length: number): string {
+function str_padRight(str: string, length: number): string {
   if (str.length > length) {
     return str.substring(0, length - 3) + "...";
   }
@@ -38,7 +38,7 @@ function padRight(str: string, length: number): string {
  *
  * @returns The name of the calling function, or a default string if not found.
  */
-function getCurrentFunctionName(): string {
+function functionName_getCurrent(): string {
   const error = new Error();
   const stack = error.stack?.split("\n");
 
@@ -87,8 +87,8 @@ class ErrorStack {
    * @param message - The message string.
    */
   public stack_push(type: MessageType, message: string): void {
-    const functionName = getCurrentFunctionName();
-    const paddedFunctionName = padRight(
+    const functionName = functionName_getCurrent();
+    const paddedFunctionName = str_padRight(
       functionName,
       this.functionNamePadWidth
     );

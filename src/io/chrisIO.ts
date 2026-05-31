@@ -296,10 +296,8 @@ export class ChrisIO {
     }
 
     try {
-      // Get the FileBrowserFolderList resource
       const folderList = await client.getFileBrowserFolders();
 
-      // Use the post method to create the new folder
       const response = await folderList.post({ path: folderPath });
 
       if (response && response.data) {

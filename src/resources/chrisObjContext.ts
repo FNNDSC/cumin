@@ -124,7 +124,7 @@ export async function objContext_create(
   }
   try {
     return factory.create(context);
-  } catch (error) {
+  } catch (error: unknown) {
     throw error;
     return null;
   }

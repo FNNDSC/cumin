@@ -112,7 +112,7 @@ export class ChRISinode {
 
     try {
       this._fileBrowserFolderObj = await this._client.getFileBrowserFolderByPath(this._path);
-    } catch (error) {
+    } catch (error: unknown) {
       throw new ChRISInitializationError('Failed to get FileBrowserFolder: ' + (error instanceof Error ? error.message : String(error)));
     }
 
@@ -138,7 +138,7 @@ export class ChRISinode {
 export async function ChRISinode_create(path?: string): Promise<ChRISinode | null> {
   try {
     return await ChRISinode.inode_create(path);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Failed to create ChRISinode:", error);
     return null;
   }

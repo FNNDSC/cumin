@@ -40,7 +40,6 @@ export async function pacsFile_getBlob(fileId: number): Promise<Result<Buffer>> 
   }
 
   try {
-    // Get the PACSFile resource using the file ID
     const pacsFile: PACSFile | null = await client.getPACSFile(fileId);
 
     if (!pacsFile) {
@@ -102,7 +101,6 @@ export async function pacsFile_getText(fileId: number): Promise<Result<string>> 
     return Err();
   }
 
-  // Convert Buffer to UTF-8 string
   // WARNING: This may corrupt binary DICOM data
   return Ok(result.value.toString('utf-8'));
 }

@@ -124,7 +124,7 @@ function options_reduce(options: ChRISElementsGet): ListOptions {
         }
       }
       return filteredObj;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error parsing returnFilter field");
     }
   }

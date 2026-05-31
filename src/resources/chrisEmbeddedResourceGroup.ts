@@ -136,7 +136,7 @@ export class ChRISEmbeddedResourceGroup<T = unknown> extends ChRISResourceGroup 
         context,
       };
       return new ChRISEmbeddedResourceGroup<T>(params);
-    } catch (error) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       //console.error(`DEBUG: create failed for ${resourceName}:`, errorMessage); // Added
       errorStack.stack_push(

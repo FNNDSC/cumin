@@ -520,7 +520,6 @@ export async function pacsRetrieve_delete(
       return Err();
     }
 
-    // Use the ChRIS API to delete the retrieve
     // The API typically has endpoints like /api/v1/pacsfiles/retrieves/{id}/
     // We need to construct the URL and make a DELETE request
     // For now, use a simple approach: we know retrieves exist, so direct delete via constructed object
@@ -720,14 +719,12 @@ export async function pacsRetrieve_statusForQuery(
         series: [],
       };
 
-      // Extract series array
       const seriesArray: unknown[] =
         Array.isArray(study.series) ? study.series :
         Array.isArray(study.Series) ? study.Series :
         Array.isArray(study.results) ? study.results :
         [];
 
-      // Process each series
       for (const seriesObj of seriesArray) {
         if (!seriesObj || typeof seriesObj !== "object") {
           continue;
@@ -740,7 +737,6 @@ export async function pacsRetrieve_statusForQuery(
           continue;
         }
 
-        // Get expected file count
         const expectedFiles: number = Number(tagValue_extract(series.NumberOfSeriesRelatedInstances)) || 0;
 
         // Count actual files pulled to CUBE

@@ -277,12 +277,10 @@ export class ListCache {
    * @returns TTL in milliseconds.
    */
   private ttl_get(path: string): number {
-    // Check exact match first
     if (this.ttlConfig.has(path)) {
       return this.ttlConfig.get(path)!;
     }
 
-    // Check pattern matches (e.g., /feeds/*)
     for (const [pattern, ttl] of this.ttlConfig) {
       if (pattern.includes('*')) {
         const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');

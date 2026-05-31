@@ -52,11 +52,9 @@ export async function computeResources_validate(
       return Err();
     }
 
-    // Fetch all compute resources
     const computeResourceList: ComputeResourceList = await client.getComputeResources();
     const resources: ComputeResource[] = (computeResourceList.data as unknown as ComputeResource[]) || [];
 
-    // Extract available resource names
     const availableNames: Set<string> = new Set(resources.map((r: ComputeResource) => r.name));
 
     // Validate requested resources

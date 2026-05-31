@@ -94,13 +94,11 @@ export async function chrisContextURL_parse(
     url = parts[1];
   }
 
-  // Extract the base URL (everything before '?')
   const urlMatch = url.match(/(https?:\/\/[^?]+)/);
   if (urlMatch) {
     result.URL = urlMatch[1];
   }
 
-  // Extract query parameters
   const queryString = url.split("?")[1];
   if (queryString) {
     const queryParams = new URLSearchParams(queryString);

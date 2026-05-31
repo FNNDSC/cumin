@@ -18,6 +18,7 @@ import {
   chrisContext,
 } from "../context/chrisContext.js";
 import { IStorageProvider } from "../io/io.js";
+import { chrisIO } from "../io/chrisIO.js";
 import { errorStack } from "../error/errorStack.js";
 import chalk from "chalk";
 
@@ -128,7 +129,7 @@ export class ChRISConnection {
         console.log("Failed to receive auth token");
         return null;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         "\nSome error seems to have been thrown while attempting to log in."
       );
@@ -305,7 +306,7 @@ export class ChRISConnection {
     try {
       await this.storageProvider!.remove(this.tokenFile);
       console.log("Logged out successfully");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error during logout:", error);
     }
   }
@@ -318,7 +319,7 @@ export class ChRISConnection {
   private async token_saveToFile(file: string, info: string): Promise<void> {
     try {
       await this.storageProvider!.write(file, info || "");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("For info: ", info);
       console.error("Error saving to file ", file, ": ", error);
     }
@@ -331,13 +332,11 @@ export class ChRISConnection {
   private async token_load(): Promise<void> {
     try {
       this.authToken = await this.storageProvider!.read(this.tokenFile);
-    } catch (error) {
+    } catch (error: unknown) {
       this.authToken = null;
     }
   }
 }
-
-import { chrisIO } from "../io/chrisIO.js";
 
 /**
  * Global instance of ChRISConnection, initialized as a constant singleton.

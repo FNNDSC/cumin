@@ -86,7 +86,7 @@ export class ChRISJob {
           : null,
         error: instanceData.error_message || null,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       errorStack.stack_push('error', `Failed to get job status: ${error}`);
       return Err();
     }
@@ -163,7 +163,7 @@ export class ChRISJob {
         if (!isActive) break;
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-      } catch (e) {
+      } catch (e: unknown) {
           break;
       }
     }
@@ -190,7 +190,7 @@ export class ChRISJob {
           return Ok(true);
       }
       return Err();
-    } catch (error) {
+    } catch (error: unknown) {
       errorStack.stack_push('error', `Failed to cancel job: ${error}`);
       return Err();
     }

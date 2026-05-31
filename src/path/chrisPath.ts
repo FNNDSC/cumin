@@ -124,7 +124,6 @@ export function path_extractFeedID(dirPath: string): number | null {
  * ```
  */
 export function path_findLatestDircopy(binListing: string[]): string | null {
-  // Filter for pl-dircopy plugins
   const dircopyPlugins: string[] = binListing.filter((name: string) => name.startsWith('pl-dircopy-v'));
 
   if (dircopyPlugins.length === 0) {
@@ -164,7 +163,6 @@ export function path_findLatestDircopy(binListing: string[]): string | null {
     return dircopyPlugins[0];
   }
 
-  // Sort by version (highest first)
   versioned.sort((a: VersionedPlugin, b: VersionedPlugin) => {
     if (a.major !== b.major) return b.major - a.major;
     if (a.minor !== b.minor) return b.minor - a.minor;

@@ -59,7 +59,6 @@ export class NodeStorageProvider implements IStorageProvider {
     try {
       if (await this.exists(resolvedPath)) {
         const buffer = await fs.readFile(resolvedPath);
-        // Convert Buffer to ArrayBuffer
         return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
       }
       return null;

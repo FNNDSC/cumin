@@ -174,7 +174,6 @@ export class ConnectionConfig {
     // Join the path parts back with slashes
     const path = pathParts.join("/");
 
-    // Return the reconstructed URI
     return `${protocol}://${domainPart}/${path}`;
   }
 
