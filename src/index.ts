@@ -37,6 +37,7 @@ export * from "./utils/result";
 export * from "./cache";
 export * from "./path/chrisPath";
 export * from "./pipelines/chrisPipeline";
+export * from "./users/chrisUsers";
 
 // Re-export chrisapi types so downstream packages don't import chrisapi directly
 export interface ChrisPathNode {
