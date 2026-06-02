@@ -12,8 +12,18 @@
  */
 
 import { chrisConnection } from "../connect/chrisConnection.js";
+import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import { errorStack } from "../error/errorStack.js";
 import { Result, Ok, Err } from "../utils/result.js";
+
+/**
+ * Group handler for ChRIS pipelines.
+ */
+export class ChRISPipelineGroup extends ChRISResourceGroup {
+  constructor() {
+    super('Pipelines', 'getPipelines');
+  }
+}
 
 /**
  * Minimal shape of a pipeline record as returned by the ChRIS API.
@@ -69,28 +79,12 @@ export interface WorkflowResult {
 export async function pipelines_list(
   search?: string
 ): Promise<Result<PipelineRecord[]>> {
-  const client = await chrisConnection.client_get();
-  if (!client) {
-    errorStack.stack_push('error', 'Not connected to ChRIS');
-    return Err();
-  }
-
   try {
-    const params: Record<string, unknown> = { limit: 1000 };
-    if (search) params.name = search;
-
-    const pipelineList = await client.getPipelines(params);
-    if (!pipelineList) {
-      return Ok([]);
-    }
-
-    const items = (pipelineList as unknown as { getItems(): unknown[] }).getItems();
-    const records: PipelineRecord[] = items.map((item: unknown) => {
-      const data = (item as { data: PipelineRecord }).data;
-      return data;
-    });
-
-    return Ok(records);
+    const group = new ChRISPipelineGroup();
+    const params = search ? { name: search } : {};
+    const result = await group.asset.resources_getAll(params);
+    if (!result || !result.tableData) return Ok([]);
+    return Ok(result.tableData as unknown as PipelineRecord[]);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `pipelines_list: ${msg}`);

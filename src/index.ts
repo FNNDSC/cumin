@@ -38,6 +38,10 @@ export * from "./cache";
 export * from "./path/chrisPath";
 export * from "./pipelines/chrisPipeline";
 export * from "./users/chrisUsers";
+export * from "./tags/chrisTags";
+export * from "./groups/chrisGroups";
+export * from "./pluginmetas/chrisPluginMetas";
+export * from "./workflows/chrisWorkflows";
 
 // Re-export chrisapi types so downstream packages don't import chrisapi directly
 export interface ChrisPathNode {
