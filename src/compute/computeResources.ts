@@ -10,8 +10,18 @@
 
 import { chrisConnection } from '../connect/chrisConnection.js';
 import { ComputeResourceList } from '@fnndsc/chrisapi';
+import { ChRISResourceGroup } from '../resources/chrisResourceGroup.js';
 import { errorStack } from '../error/errorStack.js';
 import { Result, Ok, Err } from '../utils/result.js';
+
+/**
+ * Group handler for ChRIS compute resources.
+ */
+export class ChRISComputeResourceGroup extends ChRISResourceGroup {
+  constructor() {
+    super('ComputeResources', 'getComputeResources');
+  }
+}
 
 /**
  * Interface representing a compute resource.
