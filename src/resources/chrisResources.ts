@@ -70,6 +70,8 @@ export interface ResourcesByFields extends ResourcesFromOptions {
 export interface FilteredResourceData {
   tableData: Record<string, unknown>[];
   selectedFields: string[];
+  /** Total count of items in the full collection (may exceed tableData.length when paginated). */
+  totalCount?: number;
 }
 
 /**
@@ -287,6 +289,7 @@ export class ChRISResource {
     return {
       tableData: allTableData,
       selectedFields,
+      totalCount: allTableData.length,
     };
   }
 
@@ -301,6 +304,10 @@ export class ChRISResource {
     const results: FilteredResourceData | null = this.resources_filterByFields(
       await this.resourceFields_get(await this.resources_getList(options))
     );
+    if (results && this._resourceCollection instanceof ListResource) {
+      const total: number = (this._resourceCollection as ListResource).totalCount;
+      if (total >= 0) results.totalCount = total;
+    }
     return results;
   }
 
