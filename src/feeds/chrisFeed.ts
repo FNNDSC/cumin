@@ -12,6 +12,7 @@ import Client from "@fnndsc/chrisapi";
 import { PluginInstance } from "@fnndsc/chrisapi";
 import { Feed } from "@fnndsc/chrisapi";
 import { CommentList } from "@fnndsc/chrisapi";
+import { Note, Comment } from "@fnndsc/chrisapi";
 import { chrisConnection } from "../connect/chrisConnection.js";
 import {
   SimpleRecord,
@@ -306,8 +307,8 @@ export async function feedNote_get(feedId: number): Promise<Result<FeedNote>> {
       errorStack.stack_push('error', `Feed ${feedId} not found.`);
       return Err();
     }
-    const note = await feed.getNote();
-    const data = note.data as unknown as FeedNote;
+    const note: Note = await feed.getNote();
+    const data: FeedNote = note.data as unknown as FeedNote;
     return Ok({ title: data?.title ?? '', content: data?.content ?? '' });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -338,7 +339,7 @@ export async function feedNote_update(
       errorStack.stack_push('error', `Feed ${feedId} not found.`);
       return Err();
     }
-    const note = await feed.getNote();
+    const note: Note = await feed.getNote();
     await note.put(data);
     return Ok(true);
   } catch (error: unknown) {
@@ -399,8 +400,8 @@ export async function feedComment_create(
       return Err();
     }
     const commentList: CommentList = await feed.getComments({ limit: 1 });
-    const created = await commentList.post(data);
-    const createdData = (created.data as unknown as FeedComment[])?.[0];
+    const created: CommentList = await commentList.post(data);
+    const createdData: FeedComment | undefined = (created.data as unknown as FeedComment[])?.[0];
     return Ok(createdData ?? { id: 0, title: data.title ?? '', content: data.content ?? '', owner_username: '' });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -428,7 +429,7 @@ export async function feedComment_delete(feedId: number, commentId: number): Pro
       errorStack.stack_push('error', `Feed ${feedId} not found.`);
       return Err();
     }
-    const comment = await feed.getComment(commentId);
+    const comment: Comment | null = await feed.getComment(commentId);
     if (!comment) {
       errorStack.stack_push('error', `Comment ${commentId} not found on feed ${feedId}.`);
       return Err();
@@ -466,7 +467,7 @@ export async function feedComment_update(
       errorStack.stack_push('error', `Feed ${feedId} not found.`);
       return Err();
     }
-    const comment = await feed.getComment(commentId);
+    const comment: Comment | null = await feed.getComment(commentId);
     if (!comment) {
       errorStack.stack_push('error', `Comment ${commentId} not found on feed ${feedId}.`);
       return Err();
