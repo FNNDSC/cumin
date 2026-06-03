@@ -264,11 +264,17 @@ export class ChrisIO {
       const userFile: UserFile = await Promise.race([uploadPromise, timeoutPromise]);
 
       // ChRIS may rename the file to avoid collisions (e.g. world.txt → world_XXXXXXX.txt)
-      // if the path was recently deleted and not yet fully committed. Rename back.
+      // when the path was recently deleted and not yet committed. Detect and rename back.
       const actualFname: string = (userFile.data as unknown as { fname?: string })?.fname ?? '';
       const normalizedActual: string = actualFname.startsWith('/') ? actualFname.substring(1) : actualFname;
       if (normalizedActual && normalizedActual !== fullPath) {
-        await userFile.put({ upload_path: fullPath });
+        try {
+          await userFile.put({ upload_path: fullPath });
+        } catch (renameErr: unknown) {
+          const renameMsg: string = renameErr instanceof Error ? renameErr.message : String(renameErr);
+          errorStack.stack_push('warning', `Uploaded as '${actualFname}' — rename to '${fullPath}' failed: ${renameMsg}`);
+          // Don't fail the upload — file was uploaded, just at wrong name
+        }
       }
 
       return true;
