@@ -32,6 +32,8 @@ In the "Sandwich Model" architecture, `cumin` is the bottom layer (just above th
     -   Includes recursive directory traversal helpers.
 -   **`ChrisIO`**: High-level IO operations, including recursive directory uploading (`uploadLocalPath`).
 -   **`ChRISResource.resources_getAll()`**: Generic pagination handler.
+-   **`ListCache`** (`listCache_get()`): Session-scoped directory listing cache for the VFS.
+-   **`ProcCache`** (`procCache_get()`): Session-scoped job monitoring cache. Stores all visible plugin instances as a DAG (two flat maps: `instances` keyed by ID, `children`/`feedRoots` for tree traversal). Structure is permanent once built; only non-terminal instance statuses are refreshed on read. Powers the `/proc/feeds/` VFS provider in salsa.
 
 ## Developer Setup
 
