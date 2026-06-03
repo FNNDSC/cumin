@@ -257,11 +257,19 @@ export class ChrisIO {
       const uploadFileObj: { fname: Blob | File } = { fname: fileObj };
 
       const uploadPromise = client.uploadFile(data, uploadFileObj);
-      const timeoutPromise = new Promise((_, reject) =>
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Upload timeout after 30s')), 30000)
       );
 
-      await Promise.race([uploadPromise, timeoutPromise]);
+      const userFile = await Promise.race([uploadPromise, timeoutPromise]);
+
+      // ChRIS may rename the file to avoid collisions (e.g. world.txt → world_XXXXXXX.txt)
+      // if the path was recently deleted and not yet fully committed. Rename back.
+      const actualFname: string = (userFile.data as unknown as { fname?: string })?.fname ?? '';
+      const normalizedActual = actualFname.startsWith('/') ? actualFname.substring(1) : actualFname;
+      if (normalizedActual && normalizedActual !== fullPath) {
+        await userFile.put({ upload_path: fullPath });
+      }
 
       return true;
     } catch (error: unknown) {
