@@ -211,6 +211,35 @@ export class ProcCache {
   }
 
   /**
+   * Reconstructs the full /proc/feeds path for a given instance ID.
+   * Walks the parent chain up to the feed root.
+   *
+   * @param id - Instance ID.
+   * @returns Full path string, or null if instance not in cache.
+   *
+   * @example
+   * ```typescript
+   * cache.path_build(64306)
+   * // '/proc/feeds/feed_1107/pl-dircopy_64267/pl-shexec_64295/.../pl-neurofiles-push_64306'
+   * ```
+   */
+  path_build(id: number): string | null {
+    const inst: ProcInstance | undefined = this.instances.get(id);
+    if (!inst) return null;
+
+    const segments: string[] = [];
+    let current: ProcInstance | undefined = inst;
+
+    while (current) {
+      segments.unshift(`${current.pluginName}_${current.id}`);
+      if (current.parentID === null) break;
+      current = this.instances.get(current.parentID);
+    }
+
+    return `/proc/feeds/feed_${inst.feedID}/${segments.join('/')}`;
+  }
+
+  /**
    * Returns all non-terminal instances (candidates for status refresh).
    */
   nonTerminal_get(): ProcInstance[] {
