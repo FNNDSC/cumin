@@ -390,6 +390,16 @@ export class ChRISPlugin {
         return null;
       }
 
+      // Verify admin URL is available — non-admin users won't have this link
+      const clientAny = client as unknown as { adminUrl?: string; setUrls?(): Promise<unknown> };
+      if (!clientAny.adminUrl && clientAny.setUrls) {
+        await clientAny.setUrls().catch(() => undefined);
+      }
+      if (!clientAny.adminUrl) {
+        errorStack.stack_push('error', 'Admin credentials required to register plugins. Authentication failed.');
+        return null;
+      }
+
       // Create plugin representation as JSON string (ChRIS expects a file upload)
       const pluginJson: string = JSON.stringify(pluginData, null, 2);
       const pluginBlob: Blob = new Blob([pluginJson], { type: 'application/json' });
