@@ -23,6 +23,7 @@
 export interface ProcFeed {
   id: number;
   title: string;
+  creationDate: string;   // ISO string — used to filter warmup to recent feeds
   finishedJobs: number;
   erroredJobs: number;
   startedJobs: number;
