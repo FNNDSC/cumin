@@ -211,6 +211,26 @@ export class ProcCache {
   }
 
   /**
+   * Searches cached instances by numeric ID or plugin name substring.
+   *
+   * @param term - Numeric instance ID, or plugin name substring.
+   * @returns Array of matching ProcInstance entries (may be empty).
+   */
+  instances_find(term: string): ProcInstance[] {
+    const numeric: number = parseInt(term, 10);
+    const isID: boolean = !isNaN(numeric) && String(numeric) === term;
+
+    if (isID) {
+      const hit: ProcInstance | undefined = this.instances.get(numeric);
+      return hit ? [hit] : [];
+    }
+
+    const lower: string = term.toLowerCase();
+    return Array.from(this.instances.values())
+      .filter((i: ProcInstance) => i.pluginName.toLowerCase().includes(lower));
+  }
+
+  /**
    * Reconstructs the full /proc/feeds path for a given instance ID.
    * Walks the parent chain up to the feed root.
    *
