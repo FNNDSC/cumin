@@ -1,22 +1,38 @@
 /**
  * @file Process Cache
  *
- * Session-scoped cache of all ChRIS plugin instances (jobs), organised as a
- * DAG mirroring the /proc/feeds/ virtual filesystem. Structure is permanent;
- * only status fields for non-terminal nodes are refreshed on access.
+ * Session-scoped cache of ChRIS feed topology. Separates permanent data
+ * (instance DAG structure) from volatile data (status — never stored).
+ *
+ * Design decisions:
+ * - Topology (id, feedID, parentID, pluginName) is permanent once written.
+ * - Status is always fetched live from the API — never stored here.
+ * - Feed job counters (finishedJobs etc.) give aggregate feed status
+ *   without per-instance API calls.
+ * - topologyLoaded distinguishes "loaded but 0 instances" from "not yet loaded".
+ * - loading map prevents duplicate API calls when background loader and
+ *   user navigation race on the same feed.
+ * - warmupComplete enables pure in-memory path for proc find <name>.
  *
  * @module
  */
 
-/** Execution statuses that never change once reached. */
-const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
-  'finishedSuccessfully',
-  'finishedWithError',
-  'cancelled',
-]);
+/**
+ * Feed-level metadata including job count fields for aggregate status.
+ */
+export interface ProcFeed {
+  id: number;
+  title: string;
+  finishedJobs: number;
+  erroredJobs: number;
+  startedJobs: number;
+  scheduledJobs: number;
+  cancelledJobs: number;
+  createdJobs: number;
+}
 
 /**
- * A single plugin instance entry in the proc cache.
+ * Topology-only instance entry. Status is never stored — always fetched live.
  */
 export interface ProcInstance {
   id: number;
@@ -24,47 +40,46 @@ export interface ProcInstance {
   /** null for root nodes (direct children of a feed). */
   parentID: number | null;
   pluginName: string;
-  status: string;
-  statusIsTerminal: boolean;
-  /** key=value pairs as run; null until populated from API data. */
+  /** null until first cat — immutable once populated. */
   params: Record<string, unknown> | null;
 }
 
 /**
- * Feed-level metadata in the proc cache.
+ * Warm-up progress counters for the prompt indicator.
  */
-export interface ProcFeed {
-  id: number;
-  title: string;
+export interface ProcWarmupProgress {
+  loaded: number;
+  total: number;
 }
 
 /**
- * Session-scoped cache of all visible plugin instances and their feeds.
- * Structured for O(1) lookup by ID and O(children) child listing.
+ * Session-scoped cache of feed and instance topology.
+ * Status is never stored — always fetched live from the API.
  */
 export class ProcCache {
   private static _instance: ProcCache | null = null;
 
-  /** All instances keyed by instance ID. */
+  private feeds: Map<number, ProcFeed> = new Map();
   private instances: Map<number, ProcInstance> = new Map();
-
-  /** Root instance IDs per feed (parentID === null). */
   private feedRoots: Map<number, number[]> = new Map();
-
-  /** Child instance IDs keyed by parent instance ID. */
   private children: Map<number, number[]> = new Map();
 
-  /** Feed metadata keyed by feed ID. */
-  private feeds: Map<number, ProcFeed> = new Map();
+  /** Feed IDs whose instance topology has been fully fetched. */
+  private topologyLoaded: Set<number> = new Set();
 
-  /** Whether an initial build has completed. */
+  /** In-flight topology fetch promises — prevents duplicate API calls. */
+  private loading: Map<number, Promise<void>> = new Map();
+
+  /** True when background warm-up has finished all feeds. */
+  private _warmupComplete: boolean = false;
+
+  private _warmupProgress: ProcWarmupProgress = { loaded: 0, total: 0 };
+
+  /** Whether initial feed index has been built. */
   private _built: boolean = false;
 
   private constructor() {}
 
-  /**
-   * Returns the singleton ProcCache instance.
-   */
   static instance_get(): ProcCache {
     if (!ProcCache._instance) {
       ProcCache._instance = new ProcCache();
@@ -72,17 +87,13 @@ export class ProcCache {
     return ProcCache._instance;
   }
 
-  /**
-   * Whether the cache has been populated at least once.
-   */
-  get built(): boolean {
-    return this._built;
-  }
+  get built(): boolean { return this._built; }
+  get warmupComplete(): boolean { return this._warmupComplete; }
+
+  // ── Feed ──────────────────────────────────────────────────────────────────
 
   /**
    * Adds or updates a feed entry.
-   *
-   * @param feed - Feed metadata to store.
    */
   feed_add(feed: ProcFeed): void {
     this.feeds.set(feed.id, feed);
@@ -91,18 +102,39 @@ export class ProcCache {
     }
   }
 
-  /**
-   * Adds or updates a plugin instance entry.
-   *
-   * @param inst - Instance data (statusIsTerminal is derived automatically).
-   */
-  instance_add(inst: Omit<ProcInstance, 'statusIsTerminal'>): void {
-    const full: ProcInstance = {
-      ...inst,
-      statusIsTerminal: TERMINAL_STATUSES.has(inst.status),
-    };
-    this.instances.set(inst.id, full);
+  feed_get(feedID: number): ProcFeed | undefined {
+    return this.feeds.get(feedID);
+  }
 
+  feedIDs_get(): number[] {
+    return Array.from(this.feeds.keys());
+  }
+
+  feedRoots_get(feedID: number): number[] {
+    return this.feedRoots.get(feedID) ?? [];
+  }
+
+  /**
+   * Removes a feed and all its instances from the cache.
+   */
+  feed_remove(feedID: number): void {
+    this.feeds.delete(feedID);
+    this.topologyLoaded.delete(feedID);
+    const allInstances: ProcInstance[] = Array.from(this.instances.values())
+      .filter((i: ProcInstance) => i.feedID === feedID);
+    for (const inst of allInstances) {
+      this.instance_remove(inst.id);
+    }
+    this.feedRoots.delete(feedID);
+  }
+
+  // ── Instance ──────────────────────────────────────────────────────────────
+
+  /**
+   * Adds a plugin instance to the topology cache.
+   */
+  instance_add(inst: ProcInstance): void {
+    this.instances.set(inst.id, inst);
     if (inst.parentID === null) {
       const roots: number[] = this.feedRoots.get(inst.feedID) ?? [];
       if (!roots.includes(inst.id)) {
@@ -118,31 +150,21 @@ export class ProcCache {
     }
   }
 
-  /**
-   * Updates only the status of an existing instance.
-   *
-   * @param id - Instance ID.
-   * @param status - New status string.
-   */
-  status_update(id: number, status: string): void {
-    const inst: ProcInstance | undefined = this.instances.get(id);
-    if (inst) {
-      inst.status = status;
-      inst.statusIsTerminal = TERMINAL_STATUSES.has(status);
-    }
+  instance_get(id: number): ProcInstance | undefined {
+    return this.instances.get(id);
+  }
+
+  children_get(parentID: number): number[] {
+    return this.children.get(parentID) ?? [];
   }
 
   /**
-   * Removes an instance from the cache entirely.
-   *
-   * @param id - Instance ID to remove.
+   * Removes an instance from the topology cache.
    */
   instance_remove(id: number): void {
     const inst: ProcInstance | undefined = this.instances.get(id);
     if (!inst) return;
-
     this.instances.delete(id);
-
     if (inst.parentID === null) {
       const roots: number[] = this.feedRoots.get(inst.feedID) ?? [];
       this.feedRoots.set(inst.feedID, roots.filter((r: number) => r !== id));
@@ -153,86 +175,56 @@ export class ProcCache {
   }
 
   /**
-   * Removes a feed and all its instances from the cache.
-   *
-   * @param feedID - Feed ID to remove.
+   * Updates cached params for an instance (on first cat).
    */
-  feed_remove(feedID: number): void {
-    this.feeds.delete(feedID);
-    const allInstances: ProcInstance[] = Array.from(this.instances.values())
-      .filter((i: ProcInstance) => i.feedID === feedID);
-    for (const inst of allInstances) {
-      this.instance_remove(inst.id);
-    }
-    this.feedRoots.delete(feedID);
+  params_update(id: number, params: Record<string, unknown>): void {
+    const inst: ProcInstance | undefined = this.instances.get(id);
+    if (inst) inst.params = params;
   }
 
-  /**
-   * Returns all feed IDs in the cache.
-   */
-  feedIDs_get(): number[] {
-    return Array.from(this.feeds.keys());
+  // ── Topology loaded tracking ───────────────────────────────────────────────
+
+  topologyLoaded_mark(feedID: number): void {
+    this.topologyLoaded.add(feedID);
   }
 
-  /**
-   * Returns feed metadata for a given feed ID, or undefined.
-   *
-   * @param feedID - Feed ID.
-   */
-  feed_get(feedID: number): ProcFeed | undefined {
-    return this.feeds.get(feedID);
+  topologyLoaded_has(feedID: number): boolean {
+    return this.topologyLoaded.has(feedID);
   }
 
-  /**
-   * Returns root instance IDs for a feed (nodes with no parent).
-   *
-   * @param feedID - Feed ID.
-   */
-  feedRoots_get(feedID: number): number[] {
-    return this.feedRoots.get(feedID) ?? [];
+  // ── In-flight map ─────────────────────────────────────────────────────────
+
+  loading_set(feedID: number, promise: Promise<void>): void {
+    this.loading.set(feedID, promise);
   }
 
-  /**
-   * Returns child instance IDs for a given parent instance.
-   *
-   * @param parentID - Parent instance ID.
-   */
-  children_get(parentID: number): number[] {
-    return this.children.get(parentID) ?? [];
+  loading_get(feedID: number): Promise<void> | undefined {
+    return this.loading.get(feedID);
   }
 
-  /**
-   * Returns a single instance by ID, or undefined.
-   *
-   * @param id - Instance ID.
-   */
-  instance_get(id: number): ProcInstance | undefined {
-    return this.instances.get(id);
+  loading_clear(feedID: number): void {
+    this.loading.delete(feedID);
   }
 
-  /**
-   * Searches cached instances by numeric ID or plugin name substring.
-   *
-   * @param term - Numeric instance ID, or plugin name substring.
-   * @returns Array of matching ProcInstance entries (may be empty).
-   */
-  instances_find(term: string): ProcInstance[] {
-    const numeric: number = parseInt(term, 10);
-    const isID: boolean = !isNaN(numeric) && String(numeric) === term;
+  // ── Warm-up state ─────────────────────────────────────────────────────────
 
-    if (isID) {
-      const hit: ProcInstance | undefined = this.instances.get(numeric);
-      return hit ? [hit] : [];
-    }
-
-    const lower: string = term.toLowerCase();
-    return Array.from(this.instances.values())
-      .filter((i: ProcInstance) => i.pluginName.toLowerCase().includes(lower));
+  warmup_complete(): void {
+    this._warmupComplete = true;
+    this._warmupProgress = { loaded: this.feeds.size, total: this.feeds.size };
   }
+
+  warmup_progress(loaded: number, total: number): void {
+    this._warmupProgress = { loaded, total };
+  }
+
+  warmupProgress_get(): ProcWarmupProgress {
+    return { ...this._warmupProgress };
+  }
+
+  // ── Path reconstruction ───────────────────────────────────────────────────
 
   /**
    * Reconstructs the full /proc/feeds path for a given instance ID.
-   * Walks the parent chain up to the feed root.
    *
    * @param id - Instance ID.
    * @returns Full path string, or null if instance not in cache.
@@ -240,61 +232,67 @@ export class ProcCache {
    * @example
    * ```typescript
    * cache.path_build(64306)
-   * // '/proc/feeds/feed_1107/pl-dircopy_64267/pl-shexec_64295/.../pl-neurofiles-push_64306'
+   * // '/proc/feeds/feed_1107/pl-dircopy_64267/.../pl-neurofiles-push_64306'
    * ```
    */
   path_build(id: number): string | null {
     const inst: ProcInstance | undefined = this.instances.get(id);
     if (!inst) return null;
-
     const segments: string[] = [];
     let current: ProcInstance | undefined = inst;
-
     while (current) {
       segments.unshift(`${current.pluginName}_${current.id}`);
       if (current.parentID === null) break;
       current = this.instances.get(current.parentID);
     }
-
     return `/proc/feeds/feed_${inst.feedID}/${segments.join('/')}`;
   }
 
   /**
-   * Returns all non-terminal instances (candidates for status refresh).
+   * Searches cached instances by numeric ID or plugin name substring.
    */
-  nonTerminal_get(): ProcInstance[] {
+  instances_find(term: string): ProcInstance[] {
+    const numeric: number = parseInt(term, 10);
+    const isID: boolean = !isNaN(numeric) && String(numeric) === term;
+    if (isID) {
+      const hit: ProcInstance | undefined = this.instances.get(numeric);
+      return hit ? [hit] : [];
+    }
+    const lower: string = term.toLowerCase();
     return Array.from(this.instances.values())
-      .filter((i: ProcInstance) => !i.statusIsTerminal);
+      .filter((i: ProcInstance) => i.pluginName.toLowerCase().includes(lower));
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  built_set(): void {
+    this._built = true;
   }
 
   /**
    * Clears all cache data. Called before a full rebuild.
    */
   cache_clear(): void {
+    this.feeds.clear();
     this.instances.clear();
     this.feedRoots.clear();
     this.children.clear();
-    this.feeds.clear();
+    this.topologyLoaded.clear();
+    this.loading.clear();
+    this._warmupComplete = false;
+    this._warmupProgress = { loaded: 0, total: 0 };
     this._built = false;
-  }
-
-  /**
-   * Marks the cache as fully built.
-   */
-  built_set(): void {
-    this._built = true;
   }
 }
 
 /**
  * Returns the singleton ProcCache instance.
  *
- * @returns The ProcCache singleton.
- *
  * @example
  * ```typescript
  * const cache = procCache_get();
- * cache.instance_add({ id: 789, feedID: 123, parentID: 456, pluginName: 'pl-fshack', status: 'scheduled', params: null });
+ * cache.instance_add({ id: 789, feedID: 123, parentID: 456,
+ *                      pluginName: 'pl-fshack', params: null });
  * ```
  */
 export function procCache_get(): ProcCache {
