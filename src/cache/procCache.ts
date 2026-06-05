@@ -47,10 +47,13 @@ export interface ProcInstance {
 
 /**
  * Warm-up progress counters for the prompt indicator.
+ * total is always 0 during global sweep (unknown upfront).
+ * active transitions false→true when sweep starts, true→false when done.
  */
 export interface ProcWarmupProgress {
   loaded: number;
   total: number;
+  active: boolean;
 }
 
 /**
@@ -74,7 +77,7 @@ export class ProcCache {
   /** True when background warm-up has finished all feeds. */
   private _warmupComplete: boolean = false;
 
-  private _warmupProgress: ProcWarmupProgress = { loaded: 0, total: 0 };
+  private _warmupProgress: ProcWarmupProgress = { loaded: 0, total: 0, active: false };
 
   /** Whether initial feed index has been built. */
   private _built: boolean = false;
@@ -155,6 +158,18 @@ export class ProcCache {
     return this.instances.get(id);
   }
 
+  instances_count(): number {
+    return this.instances.size;
+  }
+
+  instancesForFeed_count(feedID: number): number {
+    let n: number = 0;
+    for (const inst of this.instances.values()) {
+      if (inst.feedID === feedID) n++;
+    }
+    return n;
+  }
+
   children_get(parentID: number): number[] {
     return this.children.get(parentID) ?? [];
   }
@@ -211,11 +226,11 @@ export class ProcCache {
 
   warmup_complete(): void {
     this._warmupComplete = true;
-    this._warmupProgress = { loaded: this.feeds.size, total: this.feeds.size };
+    this._warmupProgress = { loaded: this._warmupProgress.loaded, total: 0, active: false };
   }
 
   warmup_progress(loaded: number, total: number): void {
-    this._warmupProgress = { loaded, total };
+    this._warmupProgress = { loaded, total, active: true };
   }
 
   warmupProgress_get(): ProcWarmupProgress {
@@ -225,7 +240,7 @@ export class ProcCache {
   // ── Path reconstruction ───────────────────────────────────────────────────
 
   /**
-   * Reconstructs the full /proc/feeds path for a given instance ID.
+   * Reconstructs the full /proc/jobs path for a given instance ID.
    *
    * @param id - Instance ID.
    * @returns Full path string, or null if instance not in cache.
@@ -233,7 +248,7 @@ export class ProcCache {
    * @example
    * ```typescript
    * cache.path_build(64306)
-   * // '/proc/feeds/feed_1107/pl-dircopy_64267/.../pl-neurofiles-push_64306'
+   * // '/proc/jobs/feed_1107/pl-dircopy_64267/.../pl-neurofiles-push_64306'
    * ```
    */
   path_build(id: number): string | null {
@@ -246,7 +261,16 @@ export class ProcCache {
       if (current.parentID === null) break;
       current = this.instances.get(current.parentID);
     }
-    return `/proc/feeds/feed_${inst.feedID}/${segments.join('/')}`;
+    return `/proc/jobs/feed_${inst.feedID}/${segments.join('/')}`;
+  }
+
+  /**
+   * Searches cached feeds by title substring (case-insensitive).
+   */
+  feeds_find(term: string): ProcFeed[] {
+    const lower: string = term.toLowerCase();
+    return Array.from(this.feeds.values())
+      .filter((f: ProcFeed) => f.title.toLowerCase().includes(lower));
   }
 
   /**
@@ -281,7 +305,7 @@ export class ProcCache {
     this.topologyLoaded.clear();
     this.loading.clear();
     this._warmupComplete = false;
-    this._warmupProgress = { loaded: 0, total: 0 };
+    this._warmupProgress = { loaded: 0, total: 0, active: false };
     this._built = false;
   }
 }
