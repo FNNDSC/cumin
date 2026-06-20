@@ -76,7 +76,7 @@ export async function pacsFile_getBlob(fileId: number): Promise<Result<Buffer>> 
     return Ok(buffer);
 
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to fetch PACS file for ID ${fileId}: ${msg}`);
     return Err();
   }

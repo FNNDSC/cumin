@@ -71,7 +71,7 @@ export async function pipelineFile_getByPath(filePath: string): Promise<Result<B
 
     // Filter by full fname path (API returns full path like "PIPELINES/user/file.yml")
     const matchingPipelineFiles: PipelineSourceFile[] = allItems.filter((item: PipelineSourceFile) => {
-        const itemData = (item as PipelineSourceFileWithData).data;
+        const itemData: PipelineSourceFileData = (item as PipelineSourceFileWithData).data;
         return itemData.fname === expectedFname;
     });
 
@@ -106,7 +106,7 @@ export async function pipelineFile_getByPath(filePath: string): Promise<Result<B
     return Ok(buffer);
 
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to fetch pipeline file for ${filePath}: ${msg}`);
     return Err();
   }

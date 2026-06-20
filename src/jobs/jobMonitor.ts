@@ -8,6 +8,9 @@ import { ChRISJob, JobStatus, JobState } from './chrisJob.js';
 
 type JobCallback = (instanceId: string, status: JobStatus) => void;
 
+/**
+ * Monitors ChRIS job (plugin-instance) state transitions.
+ */
 export class JobMonitor {
   private static instance: JobMonitor;
   private watchedJobs: Map<string, { lastState: JobState }> = new Map();
@@ -74,12 +77,12 @@ export class JobMonitor {
 
   private async poll(): Promise<void> {
     for (const [instanceId, watchData] of this.watchedJobs) {
-      const job = new ChRISJob(instanceId);
+      const job: ChRISJob = new ChRISJob(instanceId);
       const statusResult = await job.status_get();
 
       if (!statusResult.ok) continue;
 
-      const status = statusResult.value;
+      const status: JobStatus = statusResult.value;
 
       // Check for state change
       if (status.state !== watchData.lastState) {
@@ -99,6 +102,11 @@ export class JobMonitor {
   }
 }
 
+/**
+ * Returns the shared JobMonitor singleton.
+ *
+ * @returns The global JobMonitor instance.
+ */
 export function jobMonitor_get(): JobMonitor {
   return JobMonitor.instance_get();
 }

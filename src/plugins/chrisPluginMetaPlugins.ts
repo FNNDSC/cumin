@@ -1,3 +1,9 @@
+/**
+ * @file Resource group for the plugins belonging to a ChRIS plugin-meta.
+ *
+ * @module
+ */
+
 import { ChRISResourceGroup } from "../resources/chrisResourceGroup";
 
 /**

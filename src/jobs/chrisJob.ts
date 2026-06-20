@@ -8,6 +8,9 @@ import { chrisConnection } from '../connect/chrisConnection.js';
 import { errorStack } from '../error/errorStack.js';
 import { Result, Ok, Err } from '../utils/result.js';
 
+/**
+ * Enumerates the lifecycle states of a ChRIS job.
+ */
 export type JobState =
   | 'scheduled'
   | 'started'
@@ -18,6 +21,9 @@ export type JobState =
   | 'registering_files'
   | 'waiting';
 
+/**
+ * Status snapshot of a ChRIS job.
+ */
 export interface JobStatus {
   id: string;
   pluginName: string;
@@ -42,6 +48,9 @@ interface PluginInstanceData {
   [key: string]: unknown;
 }
 
+/**
+ * Represents a single ChRIS plugin-instance (job) and its operations.
+ */
 export class ChRISJob {
   private instanceId: string;
 
@@ -71,7 +80,7 @@ export class ChRISJob {
         return Err();
       }
 
-      const instanceData = instance.data as unknown as PluginInstanceData;
+      const instanceData: PluginInstanceData = instance.data as unknown as PluginInstanceData;
       return Ok({
         id: this.instanceId,
         pluginName: instanceData.plugin_name,
@@ -107,8 +116,8 @@ export class ChRISJob {
     // NOTE: ChRIS API for logs is usually just instance.getLogs() which returns the whole string.
     // Streaming might require repeated calls and string slicing.
     
-    let currentLog = '';
-    let isActive = true;
+    let currentLog: string = '';
+    let isActive: boolean = true;
 
     while (isActive) {
       try {
@@ -139,8 +148,8 @@ export class ChRISJob {
         
         // Let's check status.
         if (instance && instance.data) {
-            const instanceData = instance.data as unknown as PluginInstanceData;
-            const status = instanceData.status;
+            const instanceData: PluginInstanceData = instance.data as unknown as PluginInstanceData;
+            const status: string = instanceData.status;
             if (['completed', 'error', 'cancelled'].includes(status)) {
                 isActive = false;
             }

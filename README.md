@@ -9,6 +9,27 @@
 
 `cumin` is the infrastructure and state management layer of the ChRIS interface ecosystem. It is a backend library that handles the "dirty work" of connecting to ChRIS, managing authentication tokens, and persisting user sessions.
 
+## Installation
+
+```bash
+npm install @fnndsc/cumin
+```
+
+Requires Node.js ≥ 20.12. Ships with TypeScript type definitions.
+
+## Usage
+
+```typescript
+import { ChRISConnection, ChrisContext, ChrisIO } from "@fnndsc/cumin";
+
+// The context engine remembers the active user, CUBE URL, and working directory
+const context = new ChrisContext();
+await context.init();
+const cubeURL: string | null = await context.ChRISURL_get();
+```
+
+See [Core Features](#core-features) for the full API surface.
+
 ## Abstract
 
 `cumin` abstracts the ChRIS REST API into a stateful, object-oriented environment. It is responsible for:
@@ -20,7 +41,7 @@
 
 In the "Sandwich Model" architecture, `cumin` is the bottom layer (just above the raw API client).
 
--   **Consumers**: Primarily [`salsa`](../salsa/README.md) (logic) and [`chili`](../chili/README.md) (CLI state).
+-   **Consumers**: Primarily [`salsa`](https://github.com/FNNDSC/salsa) (logic) and [`chili`](https://github.com/FNNDSC/chili) (CLI state).
 -   **Environment**: Designed for Node.js but architected with interfaces to support browser environments.
 
 ## Core Features
@@ -48,6 +69,10 @@ To build the `cumin` library from source:
     ```bash
     npm run build
     ```
+
+## License
+
+MIT — part of the [ChRIS Project](https://chrisproject.org).
 
 ---
 _-30-_

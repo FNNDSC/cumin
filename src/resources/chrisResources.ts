@@ -152,7 +152,7 @@ export class ChRISResource {
     if (!(this._resourceCollection instanceof ListResource)) {
       return false;
     }
-    const res = this._resourceCollection?.getItem(id) as ItemResource;
+    const res: ItemResource = this._resourceCollection?.getItem(id) as ItemResource;
     try {
       await res._delete();
       return true;
@@ -185,7 +185,7 @@ export class ChRISResource {
    * @param resourceMethod - The method to bind.
    * @param resourceName - Optional name for the resource.
    */
-  resource_bindGetMethodToObj(
+  binding_applyGet(
     obj: unknown,
     resourceMethod: (params: ListOptions) => Promise<ListResource | Resource>,
     resourceName?: string
@@ -201,7 +201,7 @@ export class ChRISResource {
    * @param methodName - The name of the method to bind.
    * @param resourceName - Optional name for the resource.
    */
-  resource_bindMethodLazy(
+  binding_applyLazy(
     objProvider: () => Promise<unknown>,
     methodName: string,
     resourceName?: string
@@ -211,12 +211,11 @@ export class ChRISResource {
     if (resourceName) this._resourceName = resourceName;
   }
 
-  private async _resolveLazyBinding(): Promise<void> {
+  private async lazyBinding_resolve(): Promise<void> {
     if (!this.resourceMethod && this._lazyObjProvider && this._lazyMethodName) {
-      const obj = await this._lazyObjProvider();
+      const obj: unknown = await this._lazyObjProvider();
       if (obj) {
-        // Ensure the method exists before binding
-        const method = obj[this._lazyMethodName];
+        const method: unknown = (obj as Record<string, unknown>)[this._lazyMethodName];
         if (typeof method === 'function') {
             this.resourceMethod = method.bind(obj);
         } else {
@@ -241,16 +240,16 @@ export class ChRISResource {
   async resources_getAll(
     options?: Partial<ListOptions>
   ): Promise<FilteredResourceData | null> {
-    const limit = 100;
-    let offset = 0;
+    const limit: number = 100;
+    let offset: number = 0;
     let allTableData: Record<string, unknown>[] = [];
     let selectedFields: string[] = [];
     // If options has a limit, we should respect it? No, getAll implies fetching everything.
     // But we should respect filters.
 
     while (true) {
-      const pageOptions = { ...options, limit, offset };
-      const result = await this.resources_listAndFilterByOptions(pageOptions);
+      const pageOptions: Partial<ListOptions> = { ...options, limit, offset };
+      const result: FilteredResourceData | null = await this.resources_listAndFilterByOptions(pageOptions);
 
       if (!result || !result.tableData) {
         break;
@@ -322,12 +321,12 @@ export class ChRISResource {
     if (!resourcesByFields) {
       return null;
     }
-    const resources = resourcesByFields.items;
-    const selectedFields = resourcesByFields.fields;
+    const resources: Item[] | null = resourcesByFields.items;
+    const selectedFields: string[] = resourcesByFields.fields;
 
     if (!resources) return null;
 
-    const tableData = resources.map((resource) => {
+    const tableData: Record<string, unknown>[] = resources.map((resource) => {
       const rowData: Record<string, unknown> = {
         id: resource.href.split("/").slice(-2)[0],
       };
@@ -347,7 +346,7 @@ export class ChRISResource {
     if (!items || !items.length) {
       return null;
     }
-    const allFields = ["id", ...items[0].data.map((item) => item.name)];
+    const allFields: string[] = ["id", ...items[0].data.map((item) => item.name)];
     const resourcesFieldsPerItem: ResourceFieldsPerItem = {
       items: items,
       fields: allFields,
@@ -413,7 +412,7 @@ export class ChRISResource {
       offset: options?.offset ?? 0,
     };
     
-    await this._resolveLazyBinding();
+    await this.lazyBinding_resolve();
 
     if (!this.resourceMethod) {
       return null;
@@ -438,25 +437,25 @@ export class ChRISResource {
     return params;
   }
 
-  private applyAdditionalFiltering(originalParams: ListOptions): Item[] | null {
+  private filtering_applyAdditional(originalParams: ListOptions): Item[] | null {
     if (!this._resourceArrayItems || this._resourceArrayItems.length === 0) {
       return null;
     }
 
-    const filteredItems = this._resourceArrayItems.filter((item) => {
+    const filteredItems: Item[] = this._resourceArrayItems.filter((item) => {
       return Object.entries(originalParams).every(([paramKey, paramValue]) => {
         // Skip non-search related parameters
         if (["limit", "offset"].includes(paramKey)) {
           return true;
         }
 
-        const dataItem = item.data.find((d) => d.name === paramKey);
+        const dataItem: { name: string; value: unknown } | undefined = item.data.find((d) => d.name === paramKey);
         if (!dataItem) {
           return false; // If the field is not found, it doesn't match the filter
         }
 
-        const itemValue = String(dataItem.value).toLowerCase();
-        const searchValue = String(paramValue).toLowerCase();
+        const itemValue: string = String(dataItem.value).toLowerCase();
+        const searchValue: string = String(paramValue).toLowerCase();
 
         // Perform exact match for 'id', partial match for other fields
         if (paramKey === "id") {
@@ -486,7 +485,7 @@ export class ChRISResource {
       this.resourceMethod = resourceMethod;
     }
     
-    await this._resolveLazyBinding();
+    await this.lazyBinding_resolve();
 
     if (!this.resourceMethod) return params;
     let resources: ListResource | Resource | null = null;
@@ -522,7 +521,7 @@ export class ChRISResource {
     this._resourceArrayItems =
       this.resourceItems_buildFromCollection(resources);
     if (Object.keys(pureparams).length > Object.keys(simplifiedParams).length) {
-      const filteredItems = this.applyAdditionalFiltering(pureparams);
+      const filteredItems: Item[] | null = this.filtering_applyAdditional(pureparams);
       if (filteredItems === null) {
         console.log("Warning: No items match the search criteria.");
       }
@@ -543,7 +542,7 @@ export function resourceFields_get(
   obj: Resource | ListResource,
   fields: string[]
 ): SimpleRecord | null {
-  const chrisResource = new ChRISResource();
+  const chrisResource: ChRISResource = new ChRISResource();
   const item: Item[] | null =
     chrisResource.resourceItems_buildFromCollection(obj);
   const resourceData: FilteredResourceData | null =

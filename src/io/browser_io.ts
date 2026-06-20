@@ -1,3 +1,9 @@
+/**
+ * @file Browser localStorage implementation of IStorageProvider.
+ *
+ * @module
+ */
+
 import { IStorageProvider } from "./io.js";
 
 /**
@@ -26,7 +32,7 @@ export class BrowserStorageProvider implements IStorageProvider {
    * @returns A Promise resolving to the data string or null if not found.
    */
   async read(path: string): Promise<string | null> {
-    const data = this.store.get(path);
+    const data: string | undefined = this.store.get(path);
     return data === undefined ? null : data;
   }
 
@@ -96,13 +102,13 @@ export class BrowserStorageProvider implements IStorageProvider {
    * @returns A Promise resolving to an array of file/directory names within the path.
    */
   async readdir(path: string): Promise<string[]> {
-    const prefixedPath = path.endsWith('/') ? path : `${path}/`;
+    const prefixedPath: string = path.endsWith('/') ? path : `${path}/`;
     const entries: string[] = [];
     for (const key of this.store.keys()) {
         if (key.startsWith(prefixedPath)) {
-            let relativePath = key.substring(prefixedPath.length);
+            let relativePath: string = key.substring(prefixedPath.length);
             // Only add the immediate child part
-            const firstSlashIndex = relativePath.indexOf('/');
+            const firstSlashIndex: number = relativePath.indexOf('/');
             if (firstSlashIndex !== -1) {
                 relativePath = relativePath.substring(0, firstSlashIndex);
             }
@@ -122,7 +128,7 @@ export class BrowserStorageProvider implements IStorageProvider {
    * @returns A Promise resolving to true if it appears to be a directory, false otherwise.
    */
   async isDirectory(path: string): Promise<boolean> {
-    const prefixedPath = path.endsWith('/') ? path : `${path}/`;
+    const prefixedPath: string = path.endsWith('/') ? path : `${path}/`;
     for (const key of this.store.keys()) {
         if (key.startsWith(prefixedPath)) {
             return true;
@@ -146,7 +152,7 @@ export class BrowserStorageProvider implements IStorageProvider {
    * @returns The basename.
    */
   basename(path: string): string {
-    const parts = path.split('/');
+    const parts: string[] = path.split('/');
     return parts[parts.length - 1] || '';
   }
 }

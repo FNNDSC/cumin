@@ -51,11 +51,11 @@ export interface ClIarguments {
 export function dictionary_fromCLI(cliString: string): ClIarguments {
   const result: ClIarguments = {};
   // Split the string by spaces, but keep quoted sections together
-  const args = cliString.match(/('.*?'|".*?"|\S+)/g) || [];
-  let key = "";
+  const args: RegExpMatchArray | [] = cliString.match(/('.*?'|".*?"|\S+)/g) || [];
+  let key: string = "";
 
   for (let i = 0; i < args.length; i++) {
-    let arg = args[i].replace(/^['"]|['"]$/g, ""); // Remove surrounding quotes
+    let arg: string = args[i].replace(/^['"]|['"]$/g, ""); // Remove surrounding quotes
 
     if (arg.startsWith("-")) {
       // This is a key
@@ -63,7 +63,7 @@ export function dictionary_fromCLI(cliString: string): ClIarguments {
       result[key] = true; // Default to true, will be overwritten if there's a value
     } else if (key) {
       // This is a value
-      const numValue = Number(arg);
+      const numValue: number = Number(arg);
       result[key] = isNaN(numValue) ? arg : numValue;
       key = "";
     }
@@ -82,10 +82,10 @@ export function keyPairString_parse(
   searchString: string
 ): Record<string, string> {
   const searchParams: Record<string, string> = {};
-  const pairs = searchString.split(",").map((pair) => pair.trim());
+  const pairs: string[] = searchString.split(",").map((pair) => pair.trim());
   pairs.forEach((pair) => {
     const [key, ...valueParts] = pair.split(":").map((s) => s.trim());
-    const value = valueParts.join(":").trim(); // Rejoin in case the value contains colons
+    const value: string = valueParts.join(":").trim(); // Rejoin in case the value contains colons
     if (key && value) {
       searchParams[key] = value;
     }
@@ -105,7 +105,7 @@ export function keyPairParams_apply<T extends Record<string, any>>(
   searchString?: string
 ): T {
   if (searchString) {
-    const searchParams = keyPairString_parse(searchString);
+    const searchParams: Record<string, string> = keyPairString_parse(searchString);
     return { ...params, ...searchParams };
   }
   return params;
@@ -114,7 +114,7 @@ export function keyPairParams_apply<T extends Record<string, any>>(
 function options_reduce(options: ChRISElementsGet): ListOptions {
   if (options.returnFilter && typeof options.returnFilter === "string") {
     try {
-      const fieldsToReturn = options.returnFilter
+      const fieldsToReturn: string[] = options.returnFilter
         .split(",")
         .map((field) => field.trim());
       const filteredObj: Partial<ChRISObjectParams> = {};
@@ -143,7 +143,7 @@ export function listParams_fromOptions(
   options: ChRISElementsGet,
   keyPairField: keyof ChRISElementsGet = "search"
 ): ListOptions {
-  const keyPairValue = options[keyPairField];
+  const keyPairValue: unknown = options[keyPairField];
 
   options.limit = options.page ? parseInt(options.page, 10) : 20;
   options.offset = options.offset ? options.offset : 0;

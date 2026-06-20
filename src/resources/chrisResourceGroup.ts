@@ -29,12 +29,12 @@ export abstract class ChRISResourceGroup {
     this._asset.resourceName = resourceName;
 
     if (chrisObj) {
-      this._asset.resource_bindGetMethodToObj(
+      this._asset.binding_applyGet(
         chrisObj,
         (chrisObj as Record<string, (params: ListOptions) => Promise<ListResource | Resource>>)[getMethod]
       );
     } else {
-      this._asset.resource_bindMethodLazy(
+      this._asset.binding_applyLazy(
         () => chrisConnection.client_get(),
         getMethod
       );

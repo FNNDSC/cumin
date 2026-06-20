@@ -93,7 +93,7 @@ export class ChRISFeed {
     dirs: string,
     feedParams: ChRISObjectParams
   ): Promise<SimpleRecord | null> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       console.error(
         "Could not access ChRIS. Have you connected with the 'connect' command?"
@@ -167,7 +167,7 @@ export async function feed_makePublic(feedId: number): Promise<Result<boolean>> 
     await feed.makePublic();
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to make feed ${feedId} public: ${msg}`);
     return Err();
   }
@@ -207,7 +207,7 @@ export async function feed_makePrivate(feedId: number): Promise<Result<boolean>>
     await feed.makeUnpublic();
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to make feed ${feedId} private: ${msg}`);
     return Err();
   }
@@ -247,7 +247,7 @@ export async function feed_delete(feedId: number): Promise<Result<boolean>> {
     await feed.delete();
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to delete feed ${feedId}: ${msg}`);
     return Err();
   }
@@ -311,7 +311,7 @@ export async function feedNote_get(feedId: number): Promise<Result<FeedNote>> {
     const data: FeedNote = note.data as unknown as FeedNote;
     return Ok({ title: data?.title ?? '', content: data?.content ?? '' });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to get note for feed ${feedId}: ${msg}`);
     return Err();
   }
@@ -343,7 +343,7 @@ export async function feedNote_update(
     await note.put(data);
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to update note for feed ${feedId}: ${msg}`);
     return Err();
   }
@@ -371,7 +371,7 @@ export async function feedComments_list(feedId: number): Promise<Result<FeedComm
     const comments: FeedComment[] = (commentList.data as unknown as FeedComment[]) || [];
     return Ok(comments);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to list comments for feed ${feedId}: ${msg}`);
     return Err();
   }
@@ -404,7 +404,7 @@ export async function feedComment_create(
     const createdData: FeedComment | undefined = (created.data as unknown as FeedComment[])?.[0];
     return Ok(createdData ?? { id: 0, title: data.title ?? '', content: data.content ?? '', owner_username: '' });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to create comment on feed ${feedId}: ${msg}`);
     return Err();
   }
@@ -437,7 +437,7 @@ export async function feedComment_delete(feedId: number, commentId: number): Pro
     await comment.delete();
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to delete comment ${commentId}: ${msg}`);
     return Err();
   }
@@ -475,12 +475,18 @@ export async function feedComment_update(
     await comment.put(data);
     return Ok(true);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `Failed to update comment ${commentId}: ${msg}`);
     return Err();
   }
 }
 
+/**
+ * Fetches a feed by its ID.
+ *
+ * @param feedId - The feed ID.
+ * @returns Result wrapping the Feed, or Err on failure.
+ */
 export async function feed_get(feedId: number): Promise<Result<Feed>> {
   const client: Client | null = await chrisConnection.client_get();
   if (!client) {
@@ -497,7 +503,7 @@ export async function feed_get(feedId: number): Promise<Result<Feed>> {
 
     return Ok(feed);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to retrieve feed ${feedId}: ${msg}`);
     return Err();
   }

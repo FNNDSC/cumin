@@ -1,3 +1,9 @@
+/**
+ * @file Factory for creating context-bound ChRIS embedded resource groups.
+ *
+ * @module
+ */
+
 import { ChRISEmbeddedResourceGroup } from "./chrisEmbeddedResourceGroup.js";
 import { errorStack } from "../error/errorStack.js";
 

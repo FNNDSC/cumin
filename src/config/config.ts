@@ -1,11 +1,16 @@
-// config.ts
+/**
+ * @file Persistent connection and session configuration storage for cumin.
+ *
+ * @module
+ */
+
 
 import { IStorageProvider } from "../io/io.js";
 import { errorStack } from "../error/errorStack.js";
 import * as path from "path";
 import * as os from "os";
 
-const name = "@fnndsc/cumin";
+const name: string = "@fnndsc/cumin";
 
 /**
  * Options for configuring a ChRIS connection.
@@ -157,13 +162,13 @@ export class ConnectionConfig {
    * @throws Error if the directory name format is invalid.
    */
   public dir_toUri(dir: string): string {
-    let uri = dir
+    let uri: string = dir
       .replace(/--/g, ".") // Convert double dashes back to dots
       .replace(/___/g, "://") // Convert triple underscore back to protocol separator
       .replace(/===/g, ":"); // Convert triple equals back to colon
 
     // Split the URI into protocol, domain (including port if present), and path
-    const parts = uri.split("://");
+    const parts: string[] = uri.split("://");
     if (parts.length !== 2) {
       throw new Error("Invalid directory name");
     }
@@ -172,7 +177,7 @@ export class ConnectionConfig {
     // Split at the first underscore, which should be after the domain and port
     const [domainPart, ...pathParts] = rest.split("_");
     // Join the path parts back with slashes
-    const path = pathParts.join("/");
+    const path: string = pathParts.join("/");
 
     return `${protocol}://${domainPart}/${path}`;
   }
@@ -315,7 +320,7 @@ export class SessionConfig {
     options?: SessionConfigOptions
   ): Promise<SessionConfig> {
     if (!SessionConfig.instance) {
-      const connectionConfig = await ConnectionConfig.instance_get(storageProvider);
+      const connectionConfig: ConnectionConfig = await ConnectionConfig.instance_get(storageProvider);
       SessionConfig.instance = new SessionConfig(
         options,
         connectionConfig,

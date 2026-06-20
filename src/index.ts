@@ -44,6 +44,9 @@ export * from "./pluginmetas/chrisPluginMetas";
 export * from "./workflows/chrisWorkflows";
 
 // Re-export chrisapi types so downstream packages don't import chrisapi directly
+/**
+ * Shape of a single node (file, directory, or link) in a ChRIS path listing.
+ */
 export interface ChrisPathNode {
   path: string;
   fname?: string;
@@ -54,6 +57,9 @@ export interface ChrisPathNode {
   linkTarget?: string;
 }
 
+/**
+ * Summary metadata describing a ChRIS plugin.
+ */
 export interface ChrisPluginSummary {
   id?: number;
   name?: string;
@@ -66,7 +72,7 @@ export interface ChrisPluginSummary {
  * @returns A Promise resolving to the version string.
  */
 export async function chrisVersion_get(url: string): Promise<string> {
-  const version = "1.0.0";
+  const version: string = "1.0.0";
   // const client = Client.getClient(url);
   // const version = await client.getVersion();
   return version;

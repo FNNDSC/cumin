@@ -47,7 +47,7 @@ export class ChRISinode {
    * @returns A Promise resolving to a new ChRISinode instance.
    */
   public static async inode_create(path: string = ""): Promise<ChRISinode> {
-    const instance = new ChRISinode(path);
+    const instance: ChRISinode = new ChRISinode(path);
     await instance.initAndBind();
     return instance;
   }

@@ -39,7 +39,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async read(filepath: string): Promise<string | null> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       if (await this.exists(resolvedPath)) {
         return await fs.readFile(resolvedPath, "utf-8");
@@ -55,7 +55,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async readBinary(filepath: string): Promise<ArrayBuffer | null> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       if (await this.exists(resolvedPath)) {
         const buffer = await fs.readFile(resolvedPath);
@@ -72,7 +72,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async write(filepath: string, data: string): Promise<void> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     const dir = path.dirname(resolvedPath);
     await this.mkdir(dir, { recursive: true });
     try {
@@ -84,7 +84,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async remove(filepath: string): Promise<void> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       if (await this.exists(resolvedPath)) {
         await fs.unlink(resolvedPath);
@@ -98,7 +98,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async mkdir(filepath: string, options?: { recursive?: boolean }): Promise<void> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       await fs.mkdir(resolvedPath, options);
     } catch (error: unknown) {
@@ -112,7 +112,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async exists(filepath: string): Promise<boolean> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       await fs.access(resolvedPath);
       return true;
@@ -128,7 +128,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async readdir(filepath: string): Promise<string[]> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       return await fs.readdir(resolvedPath);
     } catch (error: unknown) {
@@ -143,7 +143,7 @@ export class NodeStorageProvider implements IStorageProvider {
   }
 
   async isDirectory(filepath: string): Promise<boolean> {
-    const resolvedPath = this.resolvePath(filepath);
+    const resolvedPath: string = this.resolvePath(filepath);
     try {
       const stats = await fs.stat(resolvedPath);
       return stats.isDirectory();

@@ -166,7 +166,7 @@ export class ListCache {
    * @returns CacheResult with freshness info, or null if not cached.
    */
   cache_get<T = unknown>(path: string): CacheResult<T> | null {
-    const entry = this.cache.get(path);
+    const entry: CacheEntry<unknown> | undefined = this.cache.get(path);
 
     if (!entry) {
       this.stats.misses++;
@@ -178,8 +178,8 @@ export class ListCache {
     this.cache.set(path, entry);
 
     // Calculate freshness
-    const age = Date.now() - entry.timestamp;
-    const fresh = !entry.dirty && age < entry.ttl;
+    const age: number = Date.now() - entry.timestamp;
+    const fresh: boolean = !entry.dirty && age < entry.ttl;
 
     if (fresh) {
       this.stats.hits++;
@@ -203,7 +203,7 @@ export class ListCache {
       this.cache.delete(path);
     }
 
-    const ttl = options?.ttl ?? this.ttl_get(path);
+    const ttl: number = options?.ttl ?? this.ttl_get(path);
 
     this.cache.set(path, {
       data,
@@ -223,7 +223,7 @@ export class ListCache {
    * @param path - The path to mark dirty.
    */
   cache_markDirty(path: string): void {
-    const entry = this.cache.get(path);
+    const entry: CacheEntry<unknown> | undefined = this.cache.get(path);
     if (entry) {
       entry.dirty = true;
     }
@@ -237,7 +237,7 @@ export class ListCache {
    * @param updater - Function to transform cached data.
    */
   cache_update<T = unknown>(path: string, updater: (data: T) => T): void {
-    const entry = this.cache.get(path);
+    const entry: CacheEntry<unknown> | undefined = this.cache.get(path);
     if (entry) {
       entry.data = updater(entry.data as T);
       entry.timestamp = Date.now();  // Reset timestamp
@@ -283,7 +283,7 @@ export class ListCache {
 
     for (const [pattern, ttl] of this.ttlConfig) {
       if (pattern.includes('*')) {
-        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        const regex: RegExp = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
         if (regex.test(path)) {
           return ttl;
         }
@@ -298,7 +298,7 @@ export class ListCache {
    */
   private evict_lru(): void {
     while (this.cache.size > this.maxEntries) {
-      const oldestKey = this.cache.keys().next().value;
+      const oldestKey: string | undefined = this.cache.keys().next().value;
       if (oldestKey !== undefined) {
         this.cache.delete(oldestKey);
         this.stats.evictions++;
@@ -314,7 +314,7 @@ export class ListCache {
    * @returns Cache statistics including hits, misses, and current state.
    */
   stats_get(): CacheStats {
-    let totalSize = 0;
+    let totalSize: number = 0;
     for (const entry of this.cache.values()) {
       // Rough estimate: JSON string length
       totalSize += JSON.stringify(entry.data).length;

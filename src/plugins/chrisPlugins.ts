@@ -38,6 +38,18 @@ import { Searchable } from "../utils/searchable.js";
 import { errorStack } from "../error/errorStack.js";
 import { Result, Ok, Err } from "../utils/result.js";
 
+/** Admin-capable slice of the ChRIS client used for plugin registration. */
+interface AdminClientSlice {
+  adminUrl?: string;
+  setUrls?(): Promise<unknown>;
+}
+
+/** Plugin descriptor uploaded as a JSON blob under the `fname` field. */
+interface PluginUploadFile {
+  fname: Blob;
+}
+
+
 /**
  * Group handler for ChRIS plugins.
  */
@@ -136,6 +148,49 @@ function collectionJson_is(data: unknown): data is CollectionJson {
   );
 }
 
+function collectionItem_toData(item: CollectionItem): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  item.data?.forEach((datum: CollectionData) => { data[datum.name] = datum.value; });
+  return data;
+}
+
+function collectionItem_selectBest(
+  items: CollectionItem[],
+  pluginName: string,
+  version: string | undefined
+): CollectionItem {
+  const exactNameMatches: CollectionItem[] = [];
+  let targetItem: CollectionItem | null = null;
+
+  for (const item of items) {
+    const itemData: Record<string, unknown> = collectionItem_toData(item);
+    if (itemData['name'] === pluginName) {
+      exactNameMatches.push(item);
+      if (version && itemData['version'] === version) {
+        targetItem = item;
+        break;
+      }
+    }
+  }
+
+  if (targetItem) return targetItem;
+  if (exactNameMatches.length > 0 && !version) return exactNameMatches[0];
+
+  const fallback: CollectionItem = items[0];
+  const fallbackData: Record<string, unknown> = collectionItem_toData(fallback);
+  if (fallbackData['name'] !== pluginName) {
+    errorStack.stack_push('warning', `Peer store search for exact plugin name '${pluginName}' returned '${fallbackData['name']}'. Exact name not found, using first result.`);
+  }
+  return fallback;
+}
+
+function collectionItem_toPluginData(item: CollectionItem): Record<string, unknown> {
+  const pluginData: Record<string, unknown> = collectionItem_toData(item);
+  if (item.href) pluginData['url'] = item.href;
+  if (item.links) pluginData['links'] = item.links;
+  return pluginData;
+}
+
 /**
  * Class for managing individual ChRIS plugins.
  */
@@ -162,7 +217,7 @@ export class ChRISPlugin {
    * @deprecated Use Searchable.from() instead.
    */
   pluginString_makeSearchable(plugin: string): string {
-    const searchable = Searchable.from(plugin);
+    const searchable: Searchable = Searchable.from(plugin);
     return searchable.toNormalizedString();
   }
 
@@ -172,7 +227,7 @@ export class ChRISPlugin {
    * @returns A Promise resolving to QueryHits containing matching plugin IDs.
    */
   async pluginIDs_resolve(pluginSearchable: string | Searchable): Promise<QueryHits | null> {
-    const searchable = typeof pluginSearchable === 'string'
+    const searchable: Searchable = typeof pluginSearchable === 'string'
       ? Searchable.from(pluginSearchable)
       : pluginSearchable;
 
@@ -208,7 +263,7 @@ export class ChRISPlugin {
     previousID: number,
     options: ChRISObjectParams
   ): Promise<PluginInstance | undefined | null> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       console.error("Could not access ChRIS. Client is not initialized.");
       return null;
@@ -297,7 +352,7 @@ export class ChRISPlugin {
     searchOptions: ChRISElementsGet,
     dataField: string | string[]
   ): Promise<QueryHits | null> {
-    const chrisPluginGroup = new ChRISPluginGroup();
+    const chrisPluginGroup: ChRISPluginGroup = new ChRISPluginGroup();
     // We rely on lazy initialization of ChRISResourceGroup
     const searchParams: ListOptions = listParams_fromOptions(searchOptions);
     const searchResults: FilteredResourceData | null =
@@ -322,7 +377,7 @@ export class ChRISPlugin {
   async pluginIDs_getFromSearchable(
     searchable: string | Searchable
   ): Promise<QueryHits | null> {
-    const searchableObj = typeof searchable === 'string'
+    const searchableObj: Searchable = typeof searchable === 'string'
       ? Searchable.from(searchable)
       : searchable;
 
@@ -391,7 +446,7 @@ export class ChRISPlugin {
       }
 
       // Verify admin URL is available — non-admin users won't have this link
-      const clientAny = client as unknown as { adminUrl?: string; setUrls?(): Promise<unknown> };
+      const clientAny: AdminClientSlice = client as unknown as AdminClientSlice;
       if (!clientAny.adminUrl && clientAny.setUrls) {
         await clientAny.setUrls().catch(() => undefined);
       }
@@ -405,7 +460,7 @@ export class ChRISPlugin {
       const pluginBlob: Blob = new Blob([pluginJson], { type: 'application/json' });
 
       const computeNames: string = computeResources.join(',');
-      const pluginFileObj = { fname: pluginBlob };
+      const pluginFileObj: PluginUploadFile = { fname: pluginBlob };
 
       const pluginAdmin = await client.adminUploadPlugin(
         { compute_names: computeNames },
@@ -452,127 +507,42 @@ export class ChRISPlugin {
       peerStoreUrl: string = 'https://cube.chrisproject.org/api/v1/'
     ): Promise<{ plugin: Record<string, unknown>; storeUrl: string } | null> {
       try {
-        // Construct search URL with name_exact and optional version
         let searchUrl: string = `${peerStoreUrl}plugins/search/?name_exact=${encodeURIComponent(pluginName)}`;
-        if (version) {
-          searchUrl += `&version=${encodeURIComponent(version)}`;
-        }
-  
+        if (version) searchUrl += `&version=${encodeURIComponent(version)}`;
+
         const response: Response = await fetch(searchUrl, {
-          headers: {
-            'Accept': 'application/vnd.collection+json'
-          }
+          headers: { 'Accept': 'application/vnd.collection+json' },
         });
-  
+
         if (!response.ok) {
-          errorStack.stack_push(
-            'error',
-            `Failed to search peer store: ${response.status} ${response.statusText}`
-          );
+          errorStack.stack_push('error', `Failed to search peer store: ${response.status} ${response.statusText}`);
           return null;
         }
-  
+
         const data: unknown = await response.json();
-  
-        // Handle Collection+JSON format (standard for ChRIS API)
-        if (collectionJson_is(data) && data.collection && data.collection.items) {
+
+        if (collectionJson_is(data) && data.collection?.items) {
           const items: CollectionItem[] = data.collection.items;
-          if (items.length === 0) {
-            return null;
-          }
-  
-          // If version is not provided, prioritize exact name match
-          let targetItem: CollectionItem | null = null;
-          const exactNameMatches: CollectionItem[] = [];
-  
-          for (const item of items) {
-            const itemData: Record<string, unknown> = {};
-            if (item.data) {
-              item.data.forEach((datum: CollectionData) => {
-                itemData[datum.name] = datum.value;
-              });
-            }
-            
-            if (itemData['name'] === pluginName) {
-              exactNameMatches.push(item);
-              if (version && itemData['version'] === version) {
-                targetItem = item; // Found exact name and version
-                break;
-              } else if (!version) {
-                // If no version specified, any exact name match is a candidate
-                // For now, continue to find the "best" match (first by default)
-                // Or consider latest version if multiple
-              }
-            }
-          }
-  
-          // If exact name+version found, use it
-          // If only exact name matches found (and no version specified), pick the first one from exactNameMatches
-          // If no exact name match (even after filtering), fallback to first item in original 'items' if any.
-          if (targetItem) {
-              // targetItem is already the name+version exact match
-          } else if (exactNameMatches.length > 0 && !version) {
-              // If no version was specified and we found exact name matches, take the first one
-              targetItem = exactNameMatches[0];
-          } else {
-              // Fallback to first item from original query results if no specific name match
-              targetItem = items[0];
-                          // If we didn't find an exact name match, but we are using this as fallback,
-                          // we should warn if names differ.
-                           const targetItemData: Record<string, unknown> = {};
-                           if (targetItem.data) {
-                               targetItem.data.forEach((datum: CollectionData) => {
-                                   targetItemData[datum.name] = datum.value;
-                               });
-                           }
-                           if (targetItemData['name'] !== pluginName) {
-                              errorStack.stack_push('warning', `Peer store search for exact plugin name '${pluginName}' returned '${targetItemData['name']}'. Exact name not found, using first result.`);
-                           }
-                      }  
-          const pluginData: Record<string, unknown> = {};
-  
-          if (targetItem.data) {
-            targetItem.data.forEach((datum: CollectionData) => {
-              pluginData[datum.name] = datum.value;
-            });
-          }
-  
-          // Ensure 'url' is present
-          if (targetItem.href) {
-            pluginData['url'] = targetItem.href;
-          }
-  
-          if (targetItem.links) {
-            pluginData['links'] = targetItem.links;
-          }
-  
-          return {
-            plugin: pluginData,
-            storeUrl: targetItem.href
-          };
-        }
-      // Fallback for simple JSON (if ever supported)
-      if (typeof data === 'object' && data !== null && 'results' in data) {
-        const results: PluginResultData[] = (data as ResultsResponse).results || [];
-
-        if (results.length === 0) {
-          return null;
+          if (items.length === 0) return null;
+          const targetItem: CollectionItem = collectionItem_selectBest(items, pluginName, version);
+          const pluginData: Record<string, unknown> = collectionItem_toPluginData(targetItem);
+          return { plugin: pluginData, storeUrl: targetItem.href };
         }
 
-        const plugin: PluginResultData = results[0];
-        return {
-          plugin: plugin,
-          storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/`
-        };
+        if (typeof data === 'object' && data !== null && 'results' in data) {
+          const results: PluginResultData[] = (data as ResultsResponse).results || [];
+          if (results.length === 0) return null;
+          const plugin: PluginResultData = results[0];
+          return { plugin, storeUrl: plugin.url || `${peerStoreUrl}plugins/${plugin.id}/` };
+        }
+
+        return null;
+      } catch (error: unknown) {
+        const errorMessage: string = error instanceof Error ? error.message : String(error);
+        errorStack.stack_push('error', `Failed to search peer store: ${errorMessage}`);
+        return null;
       }
-
-      return null;
-    } catch (error: unknown) {
-      const errorMessage: string = error instanceof Error ? error.message : String(error);
-      errorStack.stack_push('error', `Failed to search peer store: ${errorMessage}`);
-      return null;
     }
-  }
 
   /**
    * Checks if a plugin with given name or dock_image already exists in current CUBE.
@@ -582,13 +552,13 @@ export class ChRISPlugin {
    */
   async plugin_existsInCube(nameOrImage: string): Promise<Record<string, unknown> | null> {
     try {
-      const client = await this.client_get();
+      const client: Client | null = await this.client_get();
       if (!client) {
         return null;
       }
 
       // Try searching by name first
-      let pluginList = await client.getPlugins({ name_exact: nameOrImage, limit: 1 });
+      let pluginList: PluginList = await client.getPlugins({ name_exact: nameOrImage, limit: 1 });
       if (pluginList && pluginList.data && pluginList.data.length > 0) {
         return pluginList.data[0] as unknown as Record<string, unknown>;
       }
@@ -628,7 +598,7 @@ export class ChRISPlugin {
         url = `${peerStoreUrl}plugins/`;
       }
       
-      const params = new URLSearchParams();
+      const params: URLSearchParams = new URLSearchParams();
       params.append('limit', '100'); // Efficient pagination
 
       if (searchParams) {
@@ -655,7 +625,7 @@ export class ChRISPlugin {
         const data: unknown = await response.json();
 
         if (collectionJson_is(data) && data.collection.items) {
-          const items = data.collection.items;
+          const items: CollectionItem[] = data.collection.items;
           
           items.forEach(item => {
              const pluginData: Record<string, unknown> = {};
@@ -683,7 +653,7 @@ export class ChRISPlugin {
       return allPlugins;
 
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push('error', `Error listing peer store: ${msg}`);
       return null;
     }
@@ -697,7 +667,7 @@ export class ChRISPlugin {
    */
   async plugin_getComputeResources(pluginId: number): Promise<string[]> {
     try {
-      const client = await this.client_get();
+      const client: Client | null = await this.client_get();
       if (!client) {
         return [];
       }
@@ -707,7 +677,7 @@ export class ChRISPlugin {
         return [];
       }
 
-      const computeResourceList = await plugin.getPluginComputeResources() as unknown as ComputeResourceListResponse;
+      const computeResourceList: ComputeResourceListResponse = await plugin.getPluginComputeResources() as unknown as ComputeResourceListResponse;
       const resources: ComputeResourceData[] = computeResourceList.data || [];
 
       return resources.map((r: ComputeResourceData) => r.name);
@@ -758,7 +728,7 @@ export async function plugin_registerDirect(
     }
 
     // Call the internal _post method directly (legacy API)
-    const response = await (pluginList as unknown as PluginListWithPost)._post(data);
+    const response: { data: Record<string, unknown> } = await (pluginList as unknown as PluginListWithPost)._post(data);
 
     if (response && response.data) {
       return Ok(response.data);
@@ -767,7 +737,7 @@ export async function plugin_registerDirect(
     errorStack.stack_push("error", "Failed to register plugin. No data in response.");
     return Err();
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push("error", `Failed to register plugin: ${msg}`);
     return Err();
   }

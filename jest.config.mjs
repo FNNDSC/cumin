@@ -5,9 +5,8 @@ export default {
   testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { useESM: true, tsconfig: { module: 'ESNext' } }],
+    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: { module: 'CommonJS' } }],
   },
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^chalk$': '<rootDir>/__mocks__/chalk.js',

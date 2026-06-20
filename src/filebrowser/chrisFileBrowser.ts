@@ -70,7 +70,7 @@ export class ChRISFileBrowser {
   files_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getFiles not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
-      this._resource.resource_bindGetMethodToObj(
+      this._resource.binding_applyGet(
         this._chrisFileBrowserFolder,
         this._chrisFileBrowserFolder.getFiles,
         BrowserType.Files
@@ -88,7 +88,7 @@ export class ChRISFileBrowser {
   links_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getLinks not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
-      this._resource.resource_bindGetMethodToObj(
+      this._resource.binding_applyGet(
         this._chrisFileBrowserFolder,
         this._chrisFileBrowserFolder.getLinkFiles,
         BrowserType.Links
@@ -106,7 +106,7 @@ export class ChRISFileBrowser {
   dirs_bind(): BoolString {
     let bindOp: BoolString = { "status": false, "message": "getDirs not bound"};
     if (this._resource && this._chrisFileBrowserFolder) {
-      this._resource.resource_bindGetMethodToObj(
+      this._resource.binding_applyGet(
         this._chrisFileBrowserFolder,
         this._chrisFileBrowserFolder.getChildren,
         BrowserType.Dirs

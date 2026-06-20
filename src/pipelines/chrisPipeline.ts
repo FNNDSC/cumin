@@ -16,6 +16,13 @@ import { ChRISResourceGroup } from "../resources/chrisResourceGroup.js";
 import { errorStack } from "../error/errorStack.js";
 import { Result, Ok, Err } from "../utils/result.js";
 
+/** Optional name filter for pipeline list queries. */
+interface PipelineSearchParams {
+  name?: string;
+  [key: string]: unknown;
+}
+
+
 /**
  * Group handler for ChRIS pipelines.
  */
@@ -80,13 +87,13 @@ export async function pipelines_list(
   search?: string
 ): Promise<Result<PipelineRecord[]>> {
   try {
-    const group = new ChRISPipelineGroup();
-    const params = search ? { name: search } : {};
+    const group: ChRISPipelineGroup = new ChRISPipelineGroup();
+    const params: PipelineSearchParams = search ? { name: search } : {};
     const result = await group.asset.resources_getAll(params);
     if (!result || !result.tableData) return Ok([]);
     return Ok(result.tableData as unknown as PipelineRecord[]);
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `pipelines_list: ${msg}`);
     return Err();
   }
@@ -114,16 +121,16 @@ export async function pipeline_resolve(
         errorStack.stack_push('error', `Pipeline with ID ${numericId} not found`);
         return Err();
       }
-      const data = (pipeline as unknown as { data: PipelineRecord }).data;
+      const data: PipelineRecord = (pipeline as unknown as { data: PipelineRecord }).data;
       return Ok(data);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push('error', `pipeline_resolve: ${msg}`);
       return Err();
     }
   }
 
-  const listResult = await pipelines_list(nameOrId);
+  const listResult: Result<PipelineRecord[]> = await pipelines_list(nameOrId);
   if (!listResult.ok) return Err();
 
   const exact: PipelineRecord | undefined = listResult.value.find(
@@ -231,7 +238,7 @@ export async function pipeline_createWorkflow(
       ) => Promise<unknown>;
     };
 
-    const workflow = await clientWithWorkflow.createWorkflow(pipelineId, {
+    const workflow: unknown = await clientWithWorkflow.createWorkflow(pipelineId, {
       previous_plugin_inst_id: options.previousPluginInstId,
       nodes_info: JSON.stringify(nodes_info),
     });
@@ -258,7 +265,7 @@ export async function pipeline_createWorkflow(
 
     return Ok({ workflowId, pluginInstanceIds });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg: string = error instanceof Error ? error.message : String(error);
     errorStack.stack_push('error', `pipeline_createWorkflow: ${msg}`);
     return Err();
   }

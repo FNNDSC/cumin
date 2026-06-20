@@ -88,20 +88,20 @@ export async function chrisContextURL_parse(
   };
 
   // Split the URL at the @ symbol
-  const parts = url.split("@");
+  const parts: string[] = url.split("@");
   if (parts.length > 1) {
     result.user = parts[0];
     url = parts[1];
   }
 
-  const urlMatch = url.match(/(https?:\/\/[^?]+)/);
+  const urlMatch: RegExpMatchArray | null = url.match(/(https?:\/\/[^?]+)/);
   if (urlMatch) {
     result.URL = urlMatch[1];
   }
 
-  const queryString = url.split("?")[1];
+  const queryString: string = url.split("?")[1];
   if (queryString) {
-    const queryParams = new URLSearchParams(queryString);
+    const queryParams: URLSearchParams = new URLSearchParams(queryString);
 
     result.folder = queryParams.get("folder");
     result.feed = queryParams.get("feed");
@@ -130,7 +130,7 @@ export async function chrisContextURL_parse(
  * @returns A Promise resolving to the plugin ID or null.
  */
 async function searchable_toID(searchable: string | Searchable): Promise<string | null> {
-  const searchableObj = typeof searchable === 'string'
+  const searchableObj: Searchable = typeof searchable === 'string'
     ? Searchable.from(searchable)
     : searchable;
 
@@ -188,7 +188,7 @@ export class ChrisContext {
       return;
     }
 
-    const files = await storage.readdir(configDir);
+    const files: string[] = await storage.readdir(configDir);
     const users: string[] = [];
 
     for (const file of files) {
@@ -214,7 +214,7 @@ export class ChrisContext {
       
       if (!(await storage.exists(userDir))) continue;
 
-      const userFiles = await storage.readdir(userDir);
+      const userFiles: string[] = await storage.readdir(userDir);
       const urlDirs: string[] = [];
       
       for (const file of userFiles) {

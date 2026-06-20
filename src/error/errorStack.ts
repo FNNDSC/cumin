@@ -1,4 +1,9 @@
-// errorStack.ts
+/**
+ * @file Process-wide error/message stack for deferred, structured reporting.
+ *
+ * @module
+ */
+
 
 type MessageType = "error" | "warning";
 
@@ -39,15 +44,15 @@ function str_padRight(str: string, length: number): string {
  * @returns The name of the calling function, or a default string if not found.
  */
 function functionName_getCurrent(): string {
-  const error = new Error();
-  const stack = error.stack?.split("\n");
+  const error: Error = new Error();
+  const stack: string[] | undefined = error.stack?.split("\n");
 
   if (!stack || stack.length < 4) {
     return "Unknown Function";
   }
 
-  const callerLine = stack[3];
-  const functionNameMatch = callerLine.match(/at\s+([\w\.<>]+)\s*\(/);
+  const callerLine: string = stack[3];
+  const functionNameMatch: RegExpMatchArray | null = callerLine.match(/at\s+([\w\.<>]+)\s*\(/);
 
   return functionNameMatch ? functionNameMatch[1] : "Anonymous Function";
 }
@@ -87,12 +92,12 @@ class ErrorStack {
    * @param message - The message string.
    */
   public stack_push(type: MessageType, message: string): void {
-    const functionName = functionName_getCurrent();
-    const paddedFunctionName = str_padRight(
+    const functionName: string = functionName_getCurrent();
+    const paddedFunctionName: string = str_padRight(
       functionName,
       this.functionNamePadWidth
     );
-    const enhancedMessage = `[${paddedFunctionName}] | ${message}`;
+    const enhancedMessage: string = `[${paddedFunctionName}] | ${message}`;
     this.stack.push({ type, message: enhancedMessage });
   }
 
@@ -191,7 +196,7 @@ class ErrorStack {
 /**
  * The global singleton instance of the ErrorStack.
  */
-export const errorStack = ErrorStack.instance_get({ functionNamePadWidth: 40 });
+export const errorStack: ErrorStack = ErrorStack.instance_get({ functionNamePadWidth: 40 });
 
 /**
  * Reconfigures the error stack with new options.

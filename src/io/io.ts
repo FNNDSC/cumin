@@ -1,4 +1,6 @@
 /**
+ * @file Storage-provider abstraction (IStorageProvider) and provider exports.
+ *
  * Interface for storage providers.
  * Defines the methods required for a storage provider to be compatible with cumin.
  */

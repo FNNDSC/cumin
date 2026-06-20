@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * @file Command-line entry point for the cumin utility library.
+ *
+ * @module
+ */
+
 import figlet from "figlet";
 import Client from "@fnndsc/chrisapi";
 import { readFileSync } from "fs";
@@ -25,7 +31,7 @@ const version = packageJson.version;
  * Initializes the connection and prints version/config info.
  */
 async function main() {
-  const nodeStorageProvider = new NodeStorageProvider();
+  const nodeStorageProvider: NodeStorageProvider = new NodeStorageProvider();
   await chrisConnection_init(nodeStorageProvider);
 
   console.log(figlet.textSync("cumin"));

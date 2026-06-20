@@ -63,7 +63,7 @@ export class Searchable {
    * @returns A Searchable instance.
    */
   static from(input: string): Searchable {
-    const trimmed = input.trim();
+    const trimmed: string = input.trim();
 
     // Batch: contains ++
     if (trimmed.includes('++')) {
@@ -87,8 +87,8 @@ export class Searchable {
    * @returns A Searchable instance.
    */
   static simple(name: string): Searchable {
-    const trimmed = name.trim();
-    const normalized = `name: ${trimmed}`;
+    const trimmed: string = name.trim();
+    const normalized: string = `name: ${trimmed}`;
 
     return new Searchable({
       raw: trimmed,
@@ -105,8 +105,8 @@ export class Searchable {
    * @returns A Searchable instance.
    */
   static compound(keyValueString: string): Searchable {
-    const trimmed = keyValueString.trim();
-    const parsed = keyPairString_parse(trimmed);
+    const trimmed: string = keyValueString.trim();
+    const parsed: Record<string, string> = keyPairString_parse(trimmed);
 
     return new Searchable({
       raw: trimmed,
@@ -123,7 +123,7 @@ export class Searchable {
    * @returns A Searchable instance.
    */
   static batch(batchString: string): Searchable {
-    const trimmed = batchString.trim();
+    const trimmed: string = batchString.trim();
 
     return new Searchable({
       raw: trimmed,
@@ -188,7 +188,7 @@ export class Searchable {
       return [this];
     }
 
-    const parts = this.data.raw.split('++').map((part) => part.trim());
+    const parts: string[] = this.data.raw.split('++').map((part) => part.trim());
     return parts.map((part) => Searchable.from(part));
   }
 
@@ -220,7 +220,7 @@ export class Searchable {
 
     if (this.isBatch()) {
       // Ensure all batch parts are valid
-      const parts = this.toBatchSearchables();
+      const parts: Searchable[] = this.toBatchSearchables();
       return parts.every((s) => s.validate());
     }
 

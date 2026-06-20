@@ -91,7 +91,7 @@ export class ChrisIO {
    * @returns A Promise resolving to true on success, false on failure, or null if client is missing.
    */
   async init(): Promise<boolean | null> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       return null;
     }
@@ -161,7 +161,7 @@ export class ChrisIO {
         filename: (userFile as UserFileWithData).data?.fname,
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push(
         "error",
         `Download stream failed for file ${fileId}: ${msg}`
@@ -176,7 +176,7 @@ export class ChrisIO {
    * @returns A Promise resolving to a Buffer of the file content, or null on failure.
    */
   async file_download(fileId: number): Promise<Buffer | null> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       errorStack.stack_push("error", "ChRIS client is not initialized");
       return null;
@@ -207,14 +207,14 @@ export class ChrisIO {
       } else if (blob instanceof ArrayBuffer) {
         return Buffer.from(blob);
       } else if (blob instanceof Blob) {
-        const arrayBuffer = await blob.arrayBuffer();
+        const arrayBuffer: ArrayBuffer = await blob.arrayBuffer();
         return Buffer.from(arrayBuffer);
       } else {
         throw new Error(`Unexpected blob type: ${typeof blob}`);
       }
     } catch (error: unknown) {
       // Catch network errors, timeouts, or specific API error messages
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push(
         "error",
         `Download failed for file ${fileId}: ${msg}`
@@ -231,7 +231,7 @@ export class ChrisIO {
    * @returns A Promise resolving to true on success, false on failure.
    */
   async file_upload(fileBlob: Blob, uploadDir: string, filename: string): Promise<boolean> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       console.error("ChRIS client is not initialized");
       return false;
@@ -240,8 +240,8 @@ export class ChrisIO {
     try {
       // ChRIS API expects paths WITHOUT leading slash
       // upload_path should be the FULL PATH including filename
-      const normalizedUploadDir = uploadDir.startsWith('/') ? uploadDir.substring(1) : uploadDir;
-      const fullPath = normalizedUploadDir.endsWith('/')
+      const normalizedUploadDir: string = uploadDir.startsWith('/') ? uploadDir.substring(1) : uploadDir;
+      const fullPath: string = normalizedUploadDir.endsWith('/')
         ? normalizedUploadDir + filename
         : normalizedUploadDir + '/' + filename;
 
@@ -256,8 +256,8 @@ export class ChrisIO {
 
       const uploadFileObj: { fname: Blob | File } = { fname: fileObj };
 
-      const uploadPromise = client.uploadFile(data, uploadFileObj);
-      const timeoutPromise = new Promise<never>((_, reject) =>
+      const uploadPromise: Promise<UserFile> = client.uploadFile(data, uploadFileObj);
+      const timeoutPromise: Promise<never> = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Upload timeout after 30s')), 30000)
       );
 
@@ -279,7 +279,7 @@ export class ChrisIO {
 
       return true;
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push(
         "error",
         `Failed to upload file ${filename} to ${uploadDir}: ${errorMsg}`
@@ -373,7 +373,7 @@ export class ChrisIO {
       await (folder as unknown as { put(body: Record<string, unknown>): Promise<unknown> }).put({ path: destPath });
       return Ok(true);
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push("error", `Failed to move folder ${srcPath} to ${destPath}: ${errorMsg}`);
       return Err<boolean>();
     }
@@ -402,7 +402,7 @@ export class ChrisIO {
       await (userFile as unknown as { put(body: Record<string, unknown>): Promise<unknown> }).put({ path: destPath });
       return Ok(true);
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorMsg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push("error", `Failed to move file ID ${fileId} to ${destPath}: ${errorMsg}`);
       return Err<boolean>();
     }
@@ -433,7 +433,7 @@ export class ChrisIO {
           : remotePath + '/' + dirBasename;
 
         const entries: string[] = await this.storageProvider.readdir(localPath);
-        let success = true;
+        let success: boolean = true;
 
         for (const entry of entries) {
           const childLocal: string = this.storageProvider.join(localPath, entry);
@@ -453,13 +453,13 @@ export class ChrisIO {
            return false;
         }
 
-        const blob = new Blob([content]);
+        const blob: Blob = new Blob([content]);
 
         // Split remotePath into dir and filename
         // Since remote path is ChRIS path (Unix-like), we split by last '/'
-        const lastSlashIndex = remotePath.lastIndexOf('/');
-        let dir = "";
-        let name = remotePath;
+        const lastSlashIndex: number = remotePath.lastIndexOf('/');
+        let dir: string = "";
+        let name: string = remotePath;
         if (lastSlashIndex !== -1) {
           dir = remotePath.substring(0, lastSlashIndex);
           name = remotePath.substring(lastSlashIndex + 1);
@@ -471,7 +471,7 @@ export class ChrisIO {
         return await this.file_upload(blob, dir, name);
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg: string = error instanceof Error ? error.message : String(error);
       errorStack.stack_push("error", `Recursive upload failed for ${localPath}: ${msg}`);
       return false;
     }
@@ -482,7 +482,7 @@ export class ChrisIO {
    * @returns A Promise resolving to true on success, or null if client is missing.
    */
   async dummy_upload(): Promise<boolean | null> {
-    const client = await this.client_get();
+    const client: Client | null = await this.client_get();
     if (!client) {
       return null;
     }
@@ -497,7 +497,7 @@ export class ChrisIO {
     const uploadFileBlob: Blob = new Blob([fileData], {
       type: "application/json",
     });
-    const filename = "dummy.json";
+    const filename: string = "dummy.json";
     
     return await this.file_upload(uploadFileBlob, this.chrisFolder, filename);
   }
